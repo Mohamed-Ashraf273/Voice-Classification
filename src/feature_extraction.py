@@ -34,10 +34,10 @@ def get_features(metadata_path, output_path):
     data_len = 0
     fail_to_load_count = 0
     for batch in batches:
-        data_len += len(os.listdir(batch)[:2000])
+        data_len += len(os.listdir(batch))
     for batch in batches:
         print(batch)
-        for file in os.listdir(batch)[:2000]:
+        for file in os.listdir(batch):
             file_path = os.path.join(batch, file)
             try:
                 y, sr = librosa.load(

@@ -1,4 +1,4 @@
-from src import  feature_extraction
+from src import feature_extraction
 
 metadata_path = ""
 output_path = ""
