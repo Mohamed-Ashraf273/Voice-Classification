@@ -2,10 +2,10 @@ import pandas as pd
 import os
 import librosa
 import numpy as np
-import librosa
 import csv
-from preprocessing import preprocess_audio
-
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from src.preprocessing import preprocess_audio
+from threading import Lock
 
 def extract_features(y, sr, preprocess=False):
     if preprocess:
@@ -22,46 +22,66 @@ def extract_features(y, sr, preprocess=False):
     )
     return features
 
+def process_file(file_path, file, df, lock):
+    try:
+        y, sr = librosa.load(file_path, sr=16000)
+        features = extract_features(y, sr, preprocess=True)
+        with lock:
+            match = df[df["path"] == file]
+        if not match.empty:
+            gender = match.iloc[0]["gender"]
+            age = match.iloc[0]["age"]
+            label = match.iloc[0]["label"]
+            features_str = ",".join(map(str, features))
+            return [gender, age, features_str, label, file]
+        else:
+            print(f"Metadata not found for {file}")
+            return None
+    except Exception as e:
+        print(f"Failed to process {file}: {e}")
+        return "FAIL"
 
-def get_features(metadata_path, output_path):
+def get_features(metadata_path, output_path, max_workers=12):
     df = pd.read_csv(metadata_path + "filtered_data_labeled.tsv", sep="\t")
     data_rows = []
+    lock = Lock()
     batches = [
         os.path.join(metadata_path, f)
         for f in os.listdir(metadata_path)
-        if f.startswith("batch")
+        if f.startswith("audio")
     ]
-    data_len = 0
-    fail_to_load_count = 0
+
+    all_files = []
     for batch in batches:
-        data_len += len(os.listdir(batch))
-    for batch in batches:
-        print(batch)
         for file in os.listdir(batch):
-            file_path = os.path.join(batch, file)
-            try:
-                y, sr = librosa.load(
-                    file_path, sr=16000
-                )  # or make it sr=22050 (librosa default)
-            except:
+            all_files.append((os.path.join(batch, file), file))
+
+    total_files = len(all_files)
+    fail_to_load_count = 0
+
+    print(f"Processing {total_files} files using {max_workers} threads...")
+
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        futures = [
+            executor.submit(process_file, file_path, file, df, lock)
+            for file_path, file in all_files
+        ]
+
+        for i, future in enumerate(as_completed(futures), 1):
+            result = future.result()
+            if result == "FAIL":
                 fail_to_load_count += 1
-                continue
-            features = extract_features(
-                y, sr, True
-            )  # change the thirs param to False if you need to extract with raw data
-            match = df[df["path"] == file]
-            if not match.empty:
-                gender = match.iloc[0]["gender"]
-                age = match.iloc[0]["age"]
-                label = match.iloc[0]["label"]
-                features_str = ",".join(map(str, features))
-                data_rows.append([gender, age, features_str, label, file])
-            else:
-                print(f"Metadata not found for {file}")
+            elif result:
+                data_rows.append(result)
+
+            if i % 100 == 0:
+                print(f"Processed {i}/{total_files} files.")
+
     with open(output_path, "w", newline="") as csvfile:
         writer = csv.writer(csvfile)
         writer.writerow(["gender", "age", "features", "label", "path"])
         writer.writerows(data_rows)
+
     print(
-        f"Features saved to {output_path} with {(fail_to_load_count/data_len)*100}% failed to load percent"
+        f"Features saved to {output_path} with {(fail_to_load_count/total_files)*100:.2f}% failed to load percent"
     )
