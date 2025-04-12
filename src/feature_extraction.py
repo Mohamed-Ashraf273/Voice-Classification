@@ -7,6 +7,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from src.preprocessing import preprocess_audio
 from threading import Lock
 
+
 def extract_features(y, sr, preprocess=False):
     if preprocess:
         y = preprocess_audio(y, sr)
@@ -21,6 +22,7 @@ def extract_features(y, sr, preprocess=False):
         )
     )
     return features
+
 
 def process_file(file_path, file, df, lock):
     try:
@@ -40,6 +42,7 @@ def process_file(file_path, file, df, lock):
     except Exception as e:
         print(f"Failed to process {file}: {e}")
         return "FAIL"
+
 
 def get_features(metadata_path, output_path, max_workers=12):
     df = pd.read_csv(metadata_path + "filtered_data_labeled.tsv", sep="\t")
