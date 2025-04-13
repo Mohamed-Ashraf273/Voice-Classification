@@ -1,9 +1,8 @@
-import pandas as pd
-import librosa
-import numpy as np
 import librosa
 import librosa.display
+import librosa.effects
 import matplotlib.pyplot as plt
+import numpy as np
 from scipy.signal import butter, lfilter
 
 
@@ -22,6 +21,11 @@ def get_mse(sig1, sig2):
     return np.mean((sig1 - sig2) ** 2)
 
 
+def remove_silence(y, top_db=30):
+    y_trimmed, _ = librosa.effects.trim(y, top_db=top_db)
+    return y_trimmed
+
+
 def butter_bandpass(lowcut, highcut, fs, order=5):
     nyquist = 0.5 * fs
     low = lowcut / nyquist
@@ -37,6 +41,7 @@ def bandpass_filter(data, lowcut=300, highcut=3400, fs=16000, order=5):
 
 
 def preprocess_audio(y, sr):
+    y = remove_silence(y)
     y_filtered = bandpass_filter(y, fs=sr)
     y_filtered = y_filtered / np.max(np.abs(y_filtered))
     return y_filtered

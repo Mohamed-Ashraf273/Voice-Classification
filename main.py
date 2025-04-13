@@ -1,16 +1,9 @@
-import time
-import pandas as pd
+import json
 import numpy as np
 import pickle
-import seaborn as sns
-import matplotlib.pyplot as plt
-from src import feature_extraction, get_metrics, train_classifier
+import time
+from src import feature_extraction, classifier, metrics
 from pathlib import Path
-from sklearn.model_selection import train_test_split
-from collections import Counter
-from imblearn.under_sampling import RandomUnderSampler
-from sklearn.preprocessing import StandardScaler
-from sklearn.metrics import classification_report, accuracy_score, confusion_matrix
 
 
 def extract_features(datapath):
@@ -22,42 +15,34 @@ def extract_features(datapath):
 
 
 def plot_data_distribution(path):
-    get_metrics.plot_data_distribution(path)
+    metrics.plot_data_distribution(path)
 
 
-def preprocessing_feature(path):
-    df = pd.read_csv(path)
-    y = df["label"]
-    x = df["features"]
-    x = x.tolist()
-    x = [np.asarray(x.split(","), np.float32) for x in x]
-    x_train, x_test, y_train, y_test = train_test_split(
-        x, y, test_size=0.2, random_state=42
-    )
-    under_sample = RandomUnderSampler()
-    x_train = pd.DataFrame(x_train)
-    y_train = pd.DataFrame(y_train.tolist())
-    X_resampled, y_resampled = under_sample.fit_resample(x_train, y_train)
-    scaler = StandardScaler()
-    x_train = scaler.fit_transform(X_resampled)
-    x_test = scaler.transform(x_test)
-    return x_train, x_test, np.array(y_resampled).ravel(), np.array(y_test).ravel()
+def train_classifier(path):
+    x_test, x_val, y_test, y_val = classifier.train(path)
+    return x_test, x_val, y_test, y_val
 
 
-def train_classifier_main():
-    x_train, x_test, y_train, y_test = preprocessing_feature("data\\features.csv")
-    best_classifier = train_classifier.train_classifier(x_train, y_train)
-    y_pred = best_classifier.predict(x_test)
-    pickle.dump(best_classifier, open("model.pkl", "wb"))
-    print("Model saved as model.pkl")
-    print("accuracy report:", accuracy_score(y_test, y_pred))
-    print("classification report:", classification_report(y_test, y_pred))
-    sns.heatmap(confusion_matrix(y_test, y_pred), annot=True, fmt="d")
-    plt.xlabel("Predicted")
-    plt.ylabel("True")
-    plt.title("Confusion Matrix")
-    plt.show()
+def save_test_data(x_test, y_test, filename="test_data.json"):
+    data = {
+        "x_test": [x.tolist() for x in x_test],
+        "y_test": y_test.tolist() if isinstance(y_test, np.ndarray) else list(y_test),
+    }
+    with open(filename, "w") as f:
+        json.dump(data, f)
+    print(f"Test data saved to {filename}")
 
 
-# datapath = "data/uncompressed/"
-train_classifier_main()
+def get_metrics(model, x_test, y_test):
+    metrics.show(model, x_test, y_test)
+
+
+x_test, x_val, y_test, y_val = train_classifier("data\\features.csv")
+save_test_data(x_test, y_test)
+with open("model.pkl", "rb") as file:
+    loaded_model = pickle.load(file)
+get_metrics(loaded_model, x_val, y_val)
+# x_train, x_test, x_val, y_train, y_test, y_val = classifier.preprocessing_feature("data\\features.csv")
+# print(f"y_train -> {np.unique(y_train, return_counts=True)}")
+# print(f"y_test -> {np.unique(y_test, return_counts=True)}")
+# print(f"y_val -> {np.unique(y_val, return_counts=True)}")
