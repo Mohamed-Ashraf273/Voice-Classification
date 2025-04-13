@@ -1,0 +1,3 @@
+https://immohann.github.io/Portfolio/Denoiser.pdf
+https://github.com/timsainb/noisereduce
+https://imperialcollegelondon.github.io/spear-challenge/assets/papers/C,D_audifon.pdf
