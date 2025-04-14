@@ -3,7 +3,12 @@ import librosa.display
 import librosa.effects
 import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
+import pickle
+from imblearn.under_sampling import RandomUnderSampler
 from scipy.signal import butter, lfilter
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
 
 
 def plot_sig(signal, sr):
@@ -45,3 +50,34 @@ def preprocess_audio(y, sr):
     y_filtered = bandpass_filter(y, fs=sr)
     y_filtered = y_filtered / np.max(np.abs(y_filtered))
     return y_filtered
+
+
+def preprocessing_features(path):
+    df = pd.read_csv(path)
+    y = df["label"]
+    x = df["features"]
+    x = x.tolist()
+    x = [np.asarray(x.split(","), np.float32) for x in x]
+    x_train, x_test, y_train, y_test = train_test_split(
+        x, y, test_size=0.2, random_state=42
+    )
+    x_test, x_val, y_test, y_val = train_test_split(
+        x_test, y_test, test_size=0.5, random_state=42
+    )
+    under_sample = RandomUnderSampler()
+    x_train = pd.DataFrame(x_train)
+    y_train = pd.DataFrame(y_train.tolist())
+    X_resampled, y_resampled = under_sample.fit_resample(x_train, y_train)
+    scaler = StandardScaler()
+    x_train = scaler.fit_transform(X_resampled)
+    x_val = scaler.transform(x_val)
+    with open("scaler.pkl", "wb") as f:
+        pickle.dump(scaler, f)
+    return (
+        x_train,
+        x_test,
+        x_val,
+        np.array(y_resampled).ravel(),
+        np.array(y_test).ravel(),
+        np.array(y_val).ravel(),
+    )

@@ -1,2 +1,5 @@
 data/
-model.pkl
+model_gmm.pkl
+model_svc.pkl
+test_data.json
+scaler.pkl

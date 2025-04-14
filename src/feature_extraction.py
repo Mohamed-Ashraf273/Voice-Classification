@@ -4,30 +4,48 @@ import numpy as np
 import os
 import pandas as pd
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from src.preprocessing import preprocess_audio
+from sklearn.preprocessing import OneHotEncoder
+from src import preprocessing
 from threading import Lock
 
 
-def extract_features(y, sr, preprocess=False):
+accent_encoder = OneHotEncoder(sparse_output=False, handle_unknown="ignore")
+
+
+def extract_features(y, sr, preprocess=False, accent_df=None, file=None):
     if preprocess:
-        y = preprocess_audio(y, sr)
+        y = preprocessing.preprocess_audio(y, sr)
+
     mfccs = librosa.feature.mfcc(y=y, sr=sr, n_mfcc=13)
     chroma = librosa.feature.chroma_stft(y=y, sr=sr)
     spectral_centroid = librosa.feature.spectral_centroid(y=y, sr=sr)
-    features = np.concatenate(
+
+    base_features = np.concatenate(
         (
             np.mean(mfccs, axis=1),
             np.mean(chroma, axis=1),
             np.mean(spectral_centroid, axis=1),
         )
     )
-    return features
+    if accent_df is not None and file is not None:
+        accent = accent_df[accent_df["path"] == file]["accent"]
+        if not accent.empty:
+            accent_label = accent.values[0]
+            encoded = accent_encoder.transform(
+                pd.DataFrame([[accent_label]], columns=["accent"])
+            )
+            return np.concatenate((base_features, encoded.flatten()))
+        else:
+            print(f"Accent not found for file: {file}")
+            dummy_encoding = np.zeros(len(accent_encoder.categories_[0]))
+            return np.concatenate((base_features, dummy_encoding))
+    return base_features
 
 
 def process_file(file_path, file, df, lock):
     try:
         y, sr = librosa.load(file_path, sr=16000)
-        features = extract_features(y, sr, preprocess=True)
+        features = extract_features(y, sr, preprocess=True, accent_df=df, file=file)
         with lock:
             match = df[df["path"] == file]
         if not match.empty:
@@ -44,8 +62,15 @@ def process_file(file_path, file, df, lock):
         return "FAIL"
 
 
-def get_features(metadata_path, output_path, max_workers=12):
-    df = pd.read_csv(metadata_path + "filtered_data_labeled.tsv", sep="\t")
+def get_features(metadata_path, output_path, production, max_workers=12):
+    if production:
+        features_file = "/sampled_50k.tsv"
+    else:
+        features_file = "/filtered_data_labeled.tsv"
+    df = pd.read_csv(metadata_path + features_file, sep="\t")
+    df["accent"] = df["accent"].fillna("none")
+    # df = df.dropna(subset=["accent"]) #dropping it
+    accent_encoder.fit(df[["accent"]])
     data_rows = []
     lock = Lock()
     batches = [
