@@ -15,18 +15,11 @@ def extract_features(y, sr, accent_encoder, accent_df, file, preprocess=False):
         y = preprocessing.preprocess_audio(y, sr)
 
     mfccs = librosa.feature.mfcc(y=y, sr=sr, n_mfcc=13)
-    mfccs_delta = librosa.feature.delta(mfccs)
-    mel_spec = librosa.feature.melspectrogram(y=y, sr=sr)
-    zcr = librosa.feature.zero_crossing_rate(y)
-    chroma = librosa.feature.chroma_stft(y=y, sr=sr)
+    #chroma = librosa.feature.chroma_stft(y=y, sr=sr)
     spectral_centroid = librosa.feature.spectral_centroid(y=y, sr=sr)
     base_features = np.concatenate(
         (
             np.mean(mfccs, axis=1),
-            np.mean(mfccs_delta, axis=1),
-            np.mean(mel_spec, axis=1),
-            np.mean(zcr, axis=1),
-            np.mean(chroma, axis=1),
             np.mean(spectral_centroid, axis=1),
         )
     )
