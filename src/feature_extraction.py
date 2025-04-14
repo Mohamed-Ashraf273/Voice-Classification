@@ -15,11 +15,12 @@ def extract_features(y, sr, accent_encoder, accent_df, file, preprocess=False):
         y = preprocessing.preprocess_audio(y, sr)
 
     mfccs = librosa.feature.mfcc(y=y, sr=sr, n_mfcc=13)
-    #chroma = librosa.feature.chroma_stft(y=y, sr=sr)
+    chroma = librosa.feature.chroma_stft(y=y, sr=sr)
     spectral_centroid = librosa.feature.spectral_centroid(y=y, sr=sr)
     base_features = np.concatenate(
         (
             np.mean(mfccs, axis=1),
+            np.mean(chroma, axis=1),
             np.mean(spectral_centroid, axis=1),
         )
     )
@@ -55,10 +56,10 @@ def process_file(file_path, file, df, encoder, lock):
 
 def get_features(metadata_path, output_path, production, max_workers=12):
     if production:
-        features_file = "/sampled_50k.tsv"
+        data_file = metadata_path
     else:
-        features_file = "/filtered_data_labeled.tsv"
-    df = pd.read_csv(metadata_path + features_file, sep="\t")
+        data_file = metadata_path + "/filtered_data_labeled.tsv"
+    df = pd.read_csv(data_file, sep="\t")
     df["accent"] = df["accent"].fillna("none")
     # df = df.dropna(subset=["accent"]) #dropping it
     accent_encoder = OneHotEncoder(sparse_output=False, handle_unknown="ignore")

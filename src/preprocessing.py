@@ -71,7 +71,7 @@ def preprocessing_features(path):
     scaler = StandardScaler()
     x_train = scaler.fit_transform(X_resampled)
     x_val = scaler.transform(x_val)
-    with open("../data/scaler.pkl", "wb") as f:
+    with open("./data/scaler.pkl", "wb") as f:
         pickle.dump(scaler, f)
     return (
         x_train,

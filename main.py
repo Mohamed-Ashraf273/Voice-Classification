@@ -1,11 +1,11 @@
-import utlis
+import pipeline
 
 
-features_file_path = "data/f_v5/features.csv"
+features_file_path = "data/features.csv"
 datapath = "data/voice_project_data"
-utlis.dev(model="svc", features_file_path=features_file_path, train=True)
+pipeline.dev(model="svc", datapath=datapath, train=False)
 
-# production_phase(
-#     test_file_path="./data/voice_project_data",
+# pipeline.predict_all(
+#     test_file_path="data/voice_project_data/sampled_50k.tsv",
 #     model_selected="svc",
 # )

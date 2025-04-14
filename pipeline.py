@@ -26,7 +26,7 @@ def train_classifier(path, model_type="svc"):
     return x_test, x_val, y_test, y_val
 
 
-def save_test_data(x_test, y_test, filename="test_data.json"):
+def save_test_data(x_test, y_test, filename="./data/test_data.json"):
     data = {
         "x_test": [x.tolist() for x in x_test],
         "y_test": y_test.tolist() if isinstance(y_test, np.ndarray) else list(y_test),
@@ -50,7 +50,7 @@ def dev(model, datapath=None, features_file_path=None, train=True):
             features_file_path, model_type=model_selected
         )
         save_test_data(x_test, y_test)
-        with open(f"model_{model_selected}.pkl", "rb") as file:
+        with open(f"./data/model_{model_selected}.pkl", "rb") as file:
             loaded_model = pickle.load(file)
         get_metrics(loaded_model, x_val, y_val)
     else:
@@ -61,6 +61,7 @@ def dev(model, datapath=None, features_file_path=None, train=True):
 
 
 def predict_all(test_file_path, model_selected):
+    print("This function will predict on our model, but if you trained a model it will override ours.")
     extract_features(test_file_path, production=True)
     df = pd.read_csv("features.csv")
     x_test = df["features"].values.tolist()
