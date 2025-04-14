@@ -63,11 +63,11 @@ def get_features(metadata_path, output_path, production, max_workers=12):
     # df = df.dropna(subset=["accent"]) #dropping it
     accent_encoder = OneHotEncoder(sparse_output=False, handle_unknown="ignore")
     if production:
-        with open("../data/accent_encoder.pkl", "rb") as f:
+        with open("./data/accent_encoder.pkl", "rb") as f:
             accent_encoder = pickle.load(f)
     else:
         accent_encoder.fit(df[["accent"]])
-        with open("../data/accent_encoder.pkl", "wb") as f:
+        with open("./data/accent_encoder.pkl", "wb") as f:
             pickle.dump(accent_encoder, f)
     data_rows = []
     lock = Lock()
