@@ -1,9 +1,9 @@
+import numpy as np
 import pickle
 from sklearn.model_selection import GridSearchCV
 from sklearn.svm import SVC
 from sklearn.mixture import GaussianMixture
 from src import preprocessing
-import numpy as np
 
 
 class GMMClassifier:
