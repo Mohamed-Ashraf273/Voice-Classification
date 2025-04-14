@@ -74,7 +74,7 @@ def get_features(metadata_path, output_path, production, max_workers=12):
             accent_encoder = pickle.load(f)
     else:
         accent_encoder.fit(df[["accent"]])
-        with open("accent_encoder.pkl", "wb") as f:
+        with open("../data/accent_encoder.pkl", "wb") as f:
             pickle.dump(accent_encoder, f)
     data_rows = []
     lock = Lock()

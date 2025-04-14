@@ -10,7 +10,7 @@ from pathlib import Path
 def extract_features(datapath, production=False):
     start = time.time()
     metadata_path = datapath
-    output_path = Path(__file__).resolve().parent / "features.csv"
+    output_path = Path(__file__).resolve().parent / "data/features.csv"
     feature_extraction.get_features(
         metadata_path, output_path, production, max_workers=12
     )
@@ -40,8 +40,11 @@ def get_metrics(model, x_test, y_test):
     metrics.show(model, x_test, y_test)
 
 
-def dev(datapath, features_file_path, model, train=True):
+def dev(model, datapath=None, features_file_path=None, train=True):
     if train:
+        if features_file_path is None:
+            raise ValueError("features_file_path must be provided when train is True")
+        print("Training mode")
         model_selected = model
         x_test, x_val, y_test, y_val = train_classifier(
             features_file_path, model_type=model_selected
@@ -51,6 +54,9 @@ def dev(datapath, features_file_path, model, train=True):
             loaded_model = pickle.load(file)
         get_metrics(loaded_model, x_val, y_val)
     else:
+        print("Feature extracting mode")
+        if datapath is None:
+            raise ValueError("datapath must be provided in feature extracting mode")
         extract_features(datapath)
 
 

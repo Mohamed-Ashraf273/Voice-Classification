@@ -64,6 +64,6 @@ def train(path, model_type):
     else:
         raise ValueError("Invalid model_type. Choose 'svc' or 'gmm'.")
 
-    pickle.dump(best_classifier, open(f"model_{model_type}.pkl", "wb"))
+    pickle.dump(best_classifier, open(f"../data/model_{model_type}.pkl", "wb"))
     print(f"Model saved as model_{model_type}.pkl")
     return x_test, x_val, y_test, y_val
