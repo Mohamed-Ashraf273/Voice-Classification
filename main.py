@@ -52,7 +52,12 @@ def dev_phase(datapath, features_file_path, model):
     get_metrics(loaded_model, x_val, y_val)
 
 
+#production_phase is not fully supported please support it
 def production_phase(test_file_path, model_selected):
+    raise ValueError(
+        "Production phase is not fully supported yet. Please use the development phase."
+        " The production phase is still under development and will be available in future releases."
+    )
     extract_features(test_file_path, production=True)
     df = pd.read_csv("features.csv")
     x_test = df["features"].values.tolist()
