@@ -40,6 +40,10 @@ def get_metrics(model, x_test, y_test):
     metrics.show(model, x_test, y_test)
 
 
+def get_output_file(model, x_test, y_test):
+    pass
+
+
 def dev(model, datapath=None, features_file_path=None, train=True):
     if train:
         if features_file_path is None:
@@ -61,15 +65,33 @@ def dev(model, datapath=None, features_file_path=None, train=True):
 
 
 def predict_all(test_file_path, model_selected):
-    print("This function will predict on our model, but if you trained a model it will override ours.")
-    extract_features(test_file_path, production=True)
-    df = pd.read_csv("features.csv")
-    x_test = df["features"].values.tolist()
+    print(
+        "This function will predict on our model, but if you trained a model it will override ours."
+    )
+    with open(test_file_path, "r") as file:
+        data = json.load(file)
+    x_test = np.array(data["x_test"])
+    y_test = np.array(data["y_test"])
     x_test = [np.asarray(x.split(","), np.float32) for x in x_test]
-    y_test = df["label"].values.tolist()
     with open(f"./data/model_{model_selected}.pkl", "rb") as file:
         loaded_model = pickle.load(file)
     with open("./data/scaler.pkl", "rb") as f:
         scaler = pickle.load(f)
     x_test = scaler.transform(x_test)
     get_metrics(loaded_model, x_test, y_test)
+
+
+def final_out(test_file_path, model_selected):
+    print(
+        "This function will predict on our model, but if you trained a model it will override ours."
+    )
+    extract_features(test_file_path, production=True)
+    df = pd.read_csv("./data/features.csv")
+    x_test = df["features"].values.tolist()
+    x_test = [np.asarray(x.split(","), np.float32) for x in x_test]
+    with open(f"./data/model_{model_selected}.pkl", "rb") as file:
+        loaded_model = pickle.load(file)
+    with open("./data/scaler.pkl", "rb") as f:
+        scaler = pickle.load(f)
+    x_test = scaler.transform(x_test)
+    get_output_file(loaded_model, x_test, y_test)

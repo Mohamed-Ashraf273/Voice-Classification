@@ -3,49 +3,41 @@ import librosa
 import numpy as np
 import os
 import pandas as pd
-import pickle
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from sklearn.preprocessing import OneHotEncoder
 from src import preprocessing
 from threading import Lock
 
 
-def extract_features(y, sr, accent_encoder, accent_df, file, preprocess=False):
+def extract_features(y, sr, preprocess=False):
     if preprocess:
         y = preprocessing.preprocess_audio(y, sr)
 
     mfccs = librosa.feature.mfcc(y=y, sr=sr, n_mfcc=13)
+    mel_spec = librosa.feature.melspectrogram(y=y, sr=sr)
     chroma = librosa.feature.chroma_stft(y=y, sr=sr)
     spectral_centroid = librosa.feature.spectral_centroid(y=y, sr=sr)
+
     base_features = np.concatenate(
         (
             np.mean(mfccs, axis=1),
+            np.mean(mel_spec, axis=1),
             np.mean(chroma, axis=1),
             np.mean(spectral_centroid, axis=1),
         )
     )
-    accent = accent_df[accent_df["path"] == file]["accent"]
-    accent_label = accent.values[0]
-    encoded = accent_encoder.transform(
-        pd.DataFrame([[accent_label]], columns=["accent"])
-    )
-    return np.concatenate((base_features, encoded.flatten()))
+    return base_features
 
 
-def process_file(file_path, file, df, encoder, lock):
+def process_file_dev(file_path, file, df, lock):
     try:
         with lock:
             match = df[df["path"] == file]
         if not match.empty:
             y, sr = librosa.load(file_path, sr=16000)
-            features = extract_features(
-                y, sr, encoder, accent_df=df, file=file, preprocess=True
-            )
-            gender = match.iloc[0]["gender"]
-            age = match.iloc[0]["age"]
+            features = extract_features(y, sr, preprocess=True)
             label = match.iloc[0]["label"]
             features_str = ",".join(map(str, features))
-            return [gender, age, features_str, label, file]
+            return [features_str, label, file]
         else:
             print(f"Metadata not found for {file}")
             return None
@@ -54,34 +46,42 @@ def process_file(file_path, file, df, encoder, lock):
         return "FAIL"
 
 
+def process_file_prod(file_path, file, *_):
+    try:
+        y, sr = librosa.load(file_path, sr=16000)
+        features = extract_features(y, sr, preprocess=True)
+        features_str = ",".join(map(str, features))
+        return [features_str, file]
+    except Exception as e:
+        print(f"Failed to process {file}: {e}")
+        return "FAIL"
+
+
 def get_features(metadata_path, output_path, production, max_workers=12):
-    if production:
-        data_file = metadata_path
-    else:
-        data_file = metadata_path + "/filtered_data_labeled.tsv"
-    df = pd.read_csv(data_file, sep="\t")
-    df["accent"] = df["accent"].fillna("none")
-    # df = df.dropna(subset=["accent"]) #dropping it
-    accent_encoder = OneHotEncoder(sparse_output=False, handle_unknown="ignore")
-    if production:
-        with open("./data/accent_encoder.pkl", "rb") as f:
-            accent_encoder = pickle.load(f)
-    else:
-        accent_encoder.fit(df[["accent"]])
-        with open("./data/accent_encoder.pkl", "wb") as f:
-            pickle.dump(accent_encoder, f)
     data_rows = []
     lock = Lock()
-    batches = [
-        os.path.join(metadata_path, f)
-        for f in os.listdir(metadata_path)
-        if f.startswith("audio")
-    ]
 
-    all_files = []
-    for batch in batches:
-        for file in os.listdir(batch):
-            all_files.append((os.path.join(batch, file), file))
+    if production:
+        files = sorted(os.listdir(metadata_path))
+        all_files = [(os.path.join(metadata_path, file), file) for file in files]
+        process_file = process_file_prod
+        df = None
+    else:
+        data_file = os.path.join(metadata_path, "filtered_data_labeled.tsv")
+        df = pd.read_csv(data_file, sep="\t")
+
+        batches = [
+            os.path.join(metadata_path, f)
+            for f in os.listdir(metadata_path)
+            if f.startswith("audio")
+        ]
+
+        all_files = [
+            (os.path.join(batch, file), file)
+            for batch in batches
+            for file in os.listdir(batch)
+        ]
+        process_file = process_file_dev
 
     total_files = len(all_files)
     fail_to_load_count = 0
@@ -90,7 +90,7 @@ def get_features(metadata_path, output_path, production, max_workers=12):
 
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
         futures = [
-            executor.submit(process_file, file_path, file, df, accent_encoder, lock)
+            executor.submit(process_file, file_path, file, df, lock)
             for file_path, file in all_files
         ]
 
@@ -101,14 +101,17 @@ def get_features(metadata_path, output_path, production, max_workers=12):
             elif result:
                 data_rows.append(result)
 
-            if i % 100 == 0:
+            if i % 100 == 0 or i == total_files:
                 print(f"Processed {i}/{total_files} files.")
 
     with open(output_path, "w", newline="") as csvfile:
         writer = csv.writer(csvfile)
-        writer.writerow(["gender", "age", "features", "label", "path"])
+        if production:
+            writer.writerow(["features", "path"])
+        else:
+            writer.writerow(["features", "label", "path"])
         writer.writerows(data_rows)
 
     print(
-        f"Features saved to {output_path} with {(fail_to_load_count/total_files)*100:.2f}% failed to load percent"
+        f"Features saved to {output_path} with {(fail_to_load_count / total_files) * 100:.2f}% failed to load percent"
     )
