@@ -22,7 +22,7 @@ def plot_data_distribution(path):
 
 
 def train_classifier(path, model_type="svc"):
-    x_test, x_val, y_test, y_val = classifier.train(path, model_type=model_type)
+    x_test, x_val, y_test, y_val = classifier.train(path)
     return x_test, x_val, y_test, y_val
 
 
