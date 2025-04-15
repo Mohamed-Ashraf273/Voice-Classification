@@ -1,3 +1,4 @@
+import json
 import matplotlib.pyplot as plt
 import pandas as pd
 import seaborn as sns
@@ -19,3 +20,8 @@ def show(model, x_test, y_test):
     plt.ylabel("True")
     plt.title("Confusion Matrix")
     plt.show()
+
+
+def get_predictions(model, x_test):
+    predictions = model.predict(x_test)
+    return predictions

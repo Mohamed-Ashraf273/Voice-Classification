@@ -7,24 +7,33 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from src import preprocessing
 from threading import Lock
 
+# pip install transformers torchaudio
+# from transformers import Wav2Vec2Processor, Wav2Vec2Model
+
+
+# processor = Wav2Vec2Processor.from_pretrained("facebook/wav2vec2-base-960h")
+# model = Wav2Vec2Model.from_pretrained("facebook/wav2vec2-base-960h")
+
 
 def extract_features(y, sr, preprocess=False):
     if preprocess:
         y = preprocessing.preprocess_audio(y, sr)
 
     mfccs = librosa.feature.mfcc(y=y, sr=sr, n_mfcc=13)
-    mel_spec = librosa.feature.melspectrogram(y=y, sr=sr)
     chroma = librosa.feature.chroma_stft(y=y, sr=sr)
     spectral_centroid = librosa.feature.spectral_centroid(y=y, sr=sr)
-
     base_features = np.concatenate(
         (
             np.mean(mfccs, axis=1),
-            np.mean(mel_spec, axis=1),
             np.mean(chroma, axis=1),
             np.mean(spectral_centroid, axis=1),
         )
     )
+    # input_values = processor(y, sampling_rate=sr, return_tensors="pt").input_values
+    # with torch.no_grad():
+    #     outputs = model(input_values)
+    # last_hidden_state = outputs.last_hidden_state
+    # wav2vec_features = torch.mean(last_hidden_state, dim=1).squeeze().numpy()
     return base_features
 
 

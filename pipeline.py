@@ -40,8 +40,8 @@ def get_metrics(model, x_test, y_test):
     metrics.show(model, x_test, y_test)
 
 
-def get_output_file(model, x_test, y_test):
-    pass
+def predict_test_data(model, x_test):
+    return metrics.get_predictions(model, x_test)
 
 
 def dev(model, datapath=None, features_file_path=None, train=True):
@@ -94,4 +94,8 @@ def final_out(test_file_path, model_selected):
     with open("./data/scaler.pkl", "rb") as f:
         scaler = pickle.load(f)
     x_test = scaler.transform(x_test)
-    get_output_file(loaded_model, x_test, y_test)
+    predictions = predict_test_data(loaded_model, x_test)
+    with open(f"./data/predictions_{model_selected}.txt", "w") as f:
+        for pred in predictions:
+            f.write(f"{pred}\n")
+    print(f"Predictions saved to predictions_{model_selected}.txt")
