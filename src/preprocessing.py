@@ -7,7 +7,7 @@ import os
 import pandas as pd
 import pickle
 import shutil
-from imblearn.under_sampling import RandomUnderSampler
+from imblearn.under_sampling import RandomUnderSampler, NearMiss
 from scipy.signal import butter, lfilter
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
@@ -102,7 +102,7 @@ def preprocessing_features(path, save_test, accent_train, datapath):
     x_test, x_val, y_test, y_val = train_test_split(
         x_test, y_test, test_size=0.5, random_state=42
     )
-    under_sample = RandomUnderSampler()
+    under_sample = NearMiss(version=1, n_neighbors=2)
     scaler = StandardScaler()
     x_train = pd.DataFrame(x_train)
     if accent_train:
@@ -112,32 +112,23 @@ def preprocessing_features(path, save_test, accent_train, datapath):
         y_train = y_train.values.argmax(axis=1)
         y_test = y_test.values.argmax(axis=1)
         y_val = y_val.values.argmax(axis=1)
-        x_train = scaler.fit_transform(x_train)
-        pass
     else:
         y_train = pd.DataFrame(y_train.tolist())
-        X_resampled, y_resampled = under_sample.fit_resample(x_train, y_train)
-        x_train = scaler.fit_transform(X_resampled)
+    # X_resampled, y_resampled = x_train[:10000], y_train[:10000]
+    X_resampled, y_resampled = under_sample.fit_resample(x_train, y_train)
+    x_train = scaler.fit_transform(X_resampled)
     x_val = scaler.transform(x_val)
     if accent_train:
         with open("./data/scaler_accents.pkl", "wb") as f:
             pickle.dump(scaler, f)
-        return (
-            x_train,
-            x_test,
-            x_val,
-            np.array(y_train).ravel(),
-            np.array(y_test).ravel(),
-            np.array(y_val).ravel(),
-        )
     else:
         with open("./data/scaler.pkl", "wb") as f:
             pickle.dump(scaler, f)
-        return (
-            x_train,
-            x_test,
-            x_val,
-            np.array(y_resampled).ravel(),
-            np.array(y_test).ravel(),
-            np.array(y_val).ravel(),
-        )
+    return (
+        x_train,
+        x_test,
+        x_val,
+        np.array(y_resampled).ravel(),
+        np.array(y_test).ravel(),
+        np.array(y_val).ravel(),
+    )
