@@ -7,12 +7,21 @@ from src import feature_extraction, classifier, metrics
 from pathlib import Path
 
 
-def extract_features(datapath, production=False):
+def extract_features(datapath, accent_feature_extraction=False, production=False):
     start = time.time()
     metadata_path = datapath
-    output_path = Path(__file__).resolve().parent / "data/features.csv"
+    if production:
+        output_path = "./data/features_prod.csv"
+    elif accent_feature_extraction:
+        output_path = "./data/features_accents.csv"
+    else:
+        output_path = "data/features_trial.csv"
     feature_extraction.get_features(
-        metadata_path, output_path, production, max_workers=12
+        metadata_path,
+        output_path,
+        production,
+        accent_feature_extraction=accent_feature_extraction,
+        max_workers=12,
     )
     print(f"Time taken: {time.time() - start:.2f} seconds")
 
@@ -21,12 +30,16 @@ def plot_data_distribution(path):
     metrics.plot_data_distribution(path)
 
 
-def train_classifier(path, model_type="svc"):
-    x_test, x_val, y_test, y_val = classifier.train(path, model_type=model_type)
+def train_classifier(path, save_test, accent_train, datapath, model_type="svc"):
+    x_test, x_val, y_test, y_val = classifier.train(
+        path, save_test, accent_train, datapath, model_type=model_type
+    )
     return x_test, x_val, y_test, y_val
 
 
-def save_test_data(x_test, y_test, filename="./data/test_data.json"):
+def save_test_data(x_test, y_test, accent_train, filename="./data/test_data.json"):
+    if accent_train:
+        filename = "./data/test_data_accents.json"
     data = {
         "x_test": [x.tolist() for x in x_test],
         "y_test": y_test.tolist() if isinstance(y_test, np.ndarray) else list(y_test),
@@ -44,27 +57,44 @@ def predict_test_data(model, x_test):
     return metrics.get_predictions(model, x_test)
 
 
-def dev(model, datapath=None, features_file_path=None, train=True):
+def dev(
+    model,
+    datapath=None,
+    features_file_path=None,
+    accent_feature_extraction=False,
+    accent_train=False,
+    train=True,
+    save_test=False,
+):
     if train:
         if features_file_path is None:
             raise ValueError("features_file_path must be provided when train is True")
         print("Training mode")
         model_selected = model
         x_test, x_val, y_test, y_val = train_classifier(
-            features_file_path, model_type=model_selected
+            features_file_path,
+            save_test,
+            accent_train,
+            datapath,
+            model_type=model_selected,
         )
-        save_test_data(x_test, y_test)
-        with open(f"./data/model_{model_selected}.pkl", "rb") as file:
-            loaded_model = pickle.load(file)
+        if save_test:
+            save_test_data(x_test, y_test, accent_train)
+        if accent_train:
+            with open(f"./data/model_{model_selected}_accent.pkl", "rb") as file:
+                loaded_model = pickle.load(file)
+        else:
+            with open(f"./data/model_{model_selected}.pkl", "rb") as file:
+                loaded_model = pickle.load(file)
         get_metrics(loaded_model, x_val, y_val)
     else:
         print("Feature extracting mode")
         if datapath is None:
             raise ValueError("datapath must be provided in feature extracting mode")
-        extract_features(datapath)
+        extract_features(datapath, accent_feature_extraction=accent_feature_extraction)
 
 
-def predict_all(test_file_path, model_selected):
+def predict_all(test_file_path, accent_test=False, model_selected="svc"):
     print(
         "This function will predict on our model, but if you trained a model it will override ours."
     )
@@ -72,11 +102,16 @@ def predict_all(test_file_path, model_selected):
         data = json.load(file)
     x_test = np.array(data["x_test"])
     y_test = np.array(data["y_test"])
-    x_test = [np.asarray(x.split(","), np.float32) for x in x_test]
-    with open(f"./data/model_{model_selected}.pkl", "rb") as file:
-        loaded_model = pickle.load(file)
-    with open("./data/scaler.pkl", "rb") as f:
-        scaler = pickle.load(f)
+    if accent_test:
+        with open(f"./data/model_{model_selected}_accent.pkl", "rb") as file:
+            loaded_model = pickle.load(file)
+        with open("./data/scaler_accents.pkl", "rb") as f:
+            scaler = pickle.load(f)
+    else:
+        with open(f"./data/model_{model_selected}.pkl", "rb") as file:
+            loaded_model = pickle.load(file)
+        with open("./data/scaler.pkl", "rb") as f:
+            scaler = pickle.load(f)
     x_test = scaler.transform(x_test)
     get_metrics(loaded_model, x_test, y_test)
 
@@ -86,7 +121,7 @@ def final_out(test_file_path, model_selected):
         "This function will predict on our model, but if you trained a model it will override ours."
     )
     extract_features(test_file_path, production=True)
-    df = pd.read_csv("./data/features.csv")
+    df = pd.read_csv("./data/features_prod.csv")
     x_test = df["features"].values.tolist()
     x_test = [np.asarray(x.split(","), np.float32) for x in x_test]
     with open(f"./data/model_{model_selected}.pkl", "rb") as file:

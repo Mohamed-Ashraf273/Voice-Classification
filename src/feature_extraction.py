@@ -3,12 +3,26 @@ import librosa
 import numpy as np
 import os
 import pandas as pd
+import pickle
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from sklearn.preprocessing import OneHotEncoder
 from src import preprocessing
 from threading import Lock
 
 
-def extract_features(y, sr, preprocess=False):
+def get_accent(accent_encoder, base_features):
+    pass
+
+
+def extract_features(
+    y,
+    sr,
+    accent_feature_extraction,
+    file,
+    accent_encoder=None,
+    accent_df=None,
+    preprocess=False,
+):
     if preprocess:
         y = preprocessing.preprocess_audio(y, sr)
 
@@ -22,17 +36,44 @@ def extract_features(y, sr, preprocess=False):
             np.mean(spectral_centroid, axis=1),
         )
     )
-    return base_features
+    if accent_feature_extraction:  # dev
+        return base_features
+    if accent_df is not None:  # dev
+        accent = accent_df[accent_df["path"] == file]["accent"]
+        accent_label = accent.values[0]
+        encoded = accent_encoder.transform(
+            pd.DataFrame([[accent_label]], columns=["accent"])
+        )
+    else:  # production
+        encoded = get_accent(accent_encoder, base_features)
+    return np.concatenate((base_features, encoded.flatten()))
 
 
-def process_file_dev(file_path, file, df, lock):
+def process_file_dev(
+    file_path, file, accent_encoder, accent_feature_extraction, df, lock
+):
     try:
         with lock:
             match = df[df["path"] == file]
         if not match.empty:
             y, sr = librosa.load(file_path, sr=16000)
-            features = extract_features(y, sr, preprocess=True)
-            label = match.iloc[0]["label"]
+            features = extract_features(
+                y,
+                sr,
+                accent_feature_extraction,
+                file=file,
+                accent_encoder=accent_encoder,
+                accent_df=df,
+                preprocess=True,
+            )
+            if accent_feature_extraction:
+                accent = match.iloc[0]["accent"]
+                encoded_label = accent_encoder.transform(
+                    pd.DataFrame([[accent]], columns=["accent"])
+                )
+                label = ",".join(map(str, encoded_label.flatten()))
+            else:
+                label = match.iloc[0]["label"]
             features_str = ",".join(map(str, features))
             return [features_str, label, file]
         else:
@@ -43,10 +84,17 @@ def process_file_dev(file_path, file, df, lock):
         return "FAIL"
 
 
-def process_file_prod(file_path, file, *_):
+def process_file_prod(file_path, file, accent_encoder, accent_feature_extraction, *_):
     try:
         y, sr = librosa.load(file_path, sr=16000)
-        features = extract_features(y, sr, preprocess=True)
+        features = extract_features(
+            y,
+            sr,
+            accent_feature_extraction,
+            file=file,
+            accent_encoder=accent_encoder,
+            preprocess=True,
+        )
         features_str = ",".join(map(str, features))
         return [features_str, file]
     except Exception as e:
@@ -54,18 +102,37 @@ def process_file_prod(file_path, file, *_):
         return "FAIL"
 
 
-def get_features(metadata_path, output_path, production, max_workers=12):
+def get_features(
+    metadata_path,
+    output_path,
+    production,
+    accent_feature_extraction,
+    max_workers=12,
+):
     data_rows = []
     lock = Lock()
 
     if production:
         files = sorted(os.listdir(metadata_path))
         all_files = [(os.path.join(metadata_path, file), file) for file in files]
+        with open("./data/accent_encoder.pkl", "rb") as f:
+            accent_encoder = pickle.load(f)
         process_file = process_file_prod
         df = None
     else:
         data_file = os.path.join(metadata_path, "filtered_data_labeled.tsv")
         df = pd.read_csv(data_file, sep="\t")
+        df["accent"] = df["accent"].fillna("none")
+        # df = df.dropna(subset=["accent"]) #dropping it
+
+        if accent_feature_extraction:
+            with open("./data/accent_encoder.pkl", "rb") as f:
+                accent_encoder = pickle.load(f)
+        else:
+            accent_encoder = OneHotEncoder(sparse_output=False, handle_unknown="ignore")
+            accent_encoder.fit(df[["accent"]])
+            with open("./data/accent_encoder.pkl", "wb") as f:
+                pickle.dump(accent_encoder, f)
 
         batches = [
             os.path.join(metadata_path, f)
@@ -87,7 +154,15 @@ def get_features(metadata_path, output_path, production, max_workers=12):
 
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
         futures = [
-            executor.submit(process_file, file_path, file, df, lock)
+            executor.submit(
+                process_file,
+                file_path,
+                file,
+                accent_encoder,
+                accent_feature_extraction,
+                df,
+                lock,
+            )
             for file_path, file in all_files
         ]
 

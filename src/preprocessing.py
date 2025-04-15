@@ -3,8 +3,10 @@ import librosa.display
 import librosa.effects
 import matplotlib.pyplot as plt
 import numpy as np
+import os
 import pandas as pd
 import pickle
+import shutil
 from imblearn.under_sampling import RandomUnderSampler
 from scipy.signal import butter, lfilter
 from sklearn.model_selection import train_test_split
@@ -52,12 +54,48 @@ def preprocess_audio(y, sr):
     return y_filtered
 
 
-def preprocessing_features(path):
+def get_test_dir(paths, accent_train):
+    batches = [
+        os.path.join("data/voice_project_data", f)
+        for f in os.listdir("data/voice_project_data")
+        if f.startswith("audio")
+    ]
+
+    all_files = [
+        (os.path.join(batch, file), file)
+        for batch in batches
+        for file in os.listdir(batch)
+    ]
+    if accent_train:
+        test_dir = "./data/test_accents"
+    else:
+        test_dir = "./data/test"
+    os.makedirs(test_dir, exist_ok=True)
+    copied = 0
+    for file_name in paths:
+        for full_path, fname in all_files:
+            if fname == file_name:
+                shutil.copy(full_path, os.path.join(test_dir, fname))
+                copied += 1
+                break
+
+
+def preprocessing_features(path, save_test, accent_train, datapath):
     df = pd.read_csv(path)
     y = df["label"]
     x = df["features"]
+    paths = df["path"]
+    if save_test:
+        assert (
+            datapath is not None
+        ), "you should provide a datapath so we can create your test dir"
+        get_test_dir(paths, accent_train)
     x = x.tolist()
-    x = [np.asarray(x.split(","), np.float32) for x in x]
+    x = [np.asarray(s.split(","), np.float32) for s in x]
+    if accent_train:
+        y = [
+            np.asarray([int(float(i)) for i in s.split(",")], dtype=np.int8) for s in y
+        ]
     x_train, x_test, y_train, y_test = train_test_split(
         x, y, test_size=0.2, random_state=42
     )
@@ -65,19 +103,41 @@ def preprocessing_features(path):
         x_test, y_test, test_size=0.5, random_state=42
     )
     under_sample = RandomUnderSampler()
-    x_train = pd.DataFrame(x_train)
-    y_train = pd.DataFrame(y_train.tolist())
-    X_resampled, y_resampled = under_sample.fit_resample(x_train, y_train)
     scaler = StandardScaler()
-    x_train = scaler.fit_transform(X_resampled)
+    x_train = pd.DataFrame(x_train)
+    if accent_train:
+        y_train = pd.DataFrame(y_train)
+        y_test = pd.DataFrame(y_test)
+        y_val = pd.DataFrame(y_val)
+        y_train = y_train.values.argmax(axis=1)
+        y_test = y_test.values.argmax(axis=1)
+        y_val = y_val.values.argmax(axis=1)
+        x_train = scaler.fit_transform(x_train)
+        pass
+    else:
+        y_train = pd.DataFrame(y_train.tolist())
+        X_resampled, y_resampled = under_sample.fit_resample(x_train, y_train)
+        x_train = scaler.fit_transform(X_resampled)
     x_val = scaler.transform(x_val)
-    with open("./data/scaler.pkl", "wb") as f:
-        pickle.dump(scaler, f)
-    return (
-        x_train,
-        x_test,
-        x_val,
-        np.array(y_resampled).ravel(),
-        np.array(y_test).ravel(),
-        np.array(y_val).ravel(),
-    )
+    if accent_train:
+        with open("./data/scaler_accents.pkl", "wb") as f:
+            pickle.dump(scaler, f)
+        return (
+            x_train,
+            x_test,
+            x_val,
+            np.array(y_train).ravel(),
+            np.array(y_test).ravel(),
+            np.array(y_val).ravel(),
+        )
+    else:
+        with open("./data/scaler.pkl", "wb") as f:
+            pickle.dump(scaler, f)
+        return (
+            x_train,
+            x_test,
+            x_val,
+            np.array(y_resampled).ravel(),
+            np.array(y_test).ravel(),
+            np.array(y_val).ravel(),
+        )

@@ -52,9 +52,9 @@ def svc_classifier(x_train, y_train):
     return model.fit(x_train, y_train)
 
 
-def train(path, model_type):
+def train(path, save_test, accent_train, datapath, model_type):
     x_train, x_test, x_val, y_train, y_test, y_val = (
-        preprocessing.preprocessing_features(path)
+        preprocessing.preprocessing_features(path, save_test, accent_train, datapath)
     )
 
     if model_type == "svc":
@@ -64,6 +64,12 @@ def train(path, model_type):
     else:
         raise ValueError("Invalid model_type. Choose 'svc' or 'gmm'.")
 
-    pickle.dump(best_classifier, open(f"./data/model_{model_type}.pkl", "wb"))
-    print(f"Model saved as model_{model_type}.pkl")
+    if accent_train:
+        pickle.dump(
+            best_classifier, open(f"./data/model_{model_type}_accent.pkl", "wb")
+        )
+        print(f"Model saved as model_{model_type}_accent.pkl")
+    else:
+        pickle.dump(best_classifier, open(f"./data/model_{model_type}.pkl", "wb"))
+        print(f"Model saved as model_{model_type}.pkl")
     return x_test, x_val, y_test, y_val
