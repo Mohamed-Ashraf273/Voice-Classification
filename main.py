@@ -1,11 +1,10 @@
 import pipeline
 
 
-features_file_path = "data/features_accents.csv"
+features_file_path = "data/features.csv"
 datapath = "data/voice_project_data"
 pipeline.dev(
     model="svc",
-    features_file_path=features_file_path,
-    train=True,
-    accent_train=True,
+    datapath=datapath,
+    train=False,
 )

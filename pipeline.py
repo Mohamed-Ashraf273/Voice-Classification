@@ -7,7 +7,9 @@ from src import feature_extraction, classifier, metrics
 from pathlib import Path
 
 
-def extract_features(datapath, accent_feature_extraction=False, production=False):
+def extract_features(
+    datapath, add_accents_to_features, accent_feature_extraction=False, production=False
+):
     start = time.time()
     metadata_path = datapath
     if production:
@@ -20,6 +22,7 @@ def extract_features(datapath, accent_feature_extraction=False, production=False
         metadata_path,
         output_path,
         production,
+        add_accents_to_features,
         accent_feature_extraction=accent_feature_extraction,
         max_workers=12,
     )
@@ -62,8 +65,9 @@ def dev(
     datapath=None,
     features_file_path=None,
     accent_feature_extraction=False,
+    add_accents_to_features=False,
     accent_train=False,
-    train=True,
+    train=False,
     save_test=False,
 ):
     if train:
@@ -91,7 +95,11 @@ def dev(
         print("Feature extracting mode")
         if datapath is None:
             raise ValueError("datapath must be provided in feature extracting mode")
-        extract_features(datapath, accent_feature_extraction=accent_feature_extraction)
+        extract_features(
+            datapath,
+            add_accents_to_features,
+            accent_feature_extraction=accent_feature_extraction,
+        )
 
 
 def predict_all(test_file_path, accent_test=False, model_selected="svc"):

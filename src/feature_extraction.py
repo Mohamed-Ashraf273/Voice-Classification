@@ -18,6 +18,7 @@ def extract_features(
     y,
     sr,
     accent_feature_extraction,
+    add_accents_to_features,
     file,
     accent_encoder=None,
     accent_df=None,
@@ -32,26 +33,33 @@ def extract_features(
     base_features = np.concatenate(
         (
             np.mean(mfccs, axis=1),
+            np.std(mfccs, axis=1),
             np.mean(chroma, axis=1),
             np.mean(spectral_centroid, axis=1),
         )
     )
-    # if accent_feature_extraction:  # dev
-    #     return base_features
-    # if accent_df is not None:  # dev
-    #     accent = accent_df[accent_df["path"] == file]["accent"]
-    #     accent_label = accent.values[0]
-    #     encoded = accent_encoder.transform(
-    #         pd.DataFrame([[accent_label]], columns=["accent"])
-    #     )
-    # else:  # production
-    #     encoded = get_accent(accent_encoder, base_features)
-    # return np.concatenate((base_features, encoded.flatten()))
-    return base_features
+    if accent_feature_extraction or not add_accents_to_features:  # dev
+        return base_features
+    print("Accents will be added :)")
+    if accent_df is not None:  # dev
+        accent = accent_df[accent_df["path"] == file]["accent"]
+        accent_label = accent.values[0]
+        encoded = accent_encoder.transform(
+            pd.DataFrame([[accent_label]], columns=["accent"])
+        )
+    else:  # production
+        encoded = get_accent(accent_encoder, base_features)
+    return np.concatenate((base_features, encoded.flatten()))
 
 
 def process_file_dev(
-    file_path, file, accent_encoder, accent_feature_extraction, df, lock
+    file_path,
+    file,
+    accent_encoder,
+    accent_feature_extraction,
+    add_accents_to_features,
+    df,
+    lock,
 ):
     try:
         with lock:
@@ -62,6 +70,7 @@ def process_file_dev(
                 y,
                 sr,
                 accent_feature_extraction,
+                add_accents_to_features,
                 file=file,
                 accent_encoder=accent_encoder,
                 accent_df=df,
@@ -85,13 +94,21 @@ def process_file_dev(
         return "FAIL"
 
 
-def process_file_prod(file_path, file, accent_encoder, accent_feature_extraction, *_):
+def process_file_prod(
+    file_path,
+    file,
+    accent_encoder,
+    accent_feature_extraction,
+    add_accents_to_features,
+    *_,
+):
     try:
         y, sr = librosa.load(file_path, sr=16000)
         features = extract_features(
             y,
             sr,
             accent_feature_extraction,
+            add_accents_to_features,
             file=file,
             accent_encoder=accent_encoder,
             preprocess=True,
@@ -107,6 +124,7 @@ def get_features(
     metadata_path,
     output_path,
     production,
+    add_accents_to_features,
     accent_feature_extraction,
     max_workers=12,
 ):
@@ -161,6 +179,7 @@ def get_features(
                 file,
                 accent_encoder,
                 accent_feature_extraction,
+                add_accents_to_features,
                 df,
                 lock,
             )
