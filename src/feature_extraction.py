@@ -36,17 +36,18 @@ def extract_features(
             np.mean(spectral_centroid, axis=1),
         )
     )
-    if accent_feature_extraction:  # dev
-        return base_features
-    if accent_df is not None:  # dev
-        accent = accent_df[accent_df["path"] == file]["accent"]
-        accent_label = accent.values[0]
-        encoded = accent_encoder.transform(
-            pd.DataFrame([[accent_label]], columns=["accent"])
-        )
-    else:  # production
-        encoded = get_accent(accent_encoder, base_features)
-    return np.concatenate((base_features, encoded.flatten()))
+    # if accent_feature_extraction:  # dev
+    #     return base_features
+    # if accent_df is not None:  # dev
+    #     accent = accent_df[accent_df["path"] == file]["accent"]
+    #     accent_label = accent.values[0]
+    #     encoded = accent_encoder.transform(
+    #         pd.DataFrame([[accent_label]], columns=["accent"])
+    #     )
+    # else:  # production
+    #     encoded = get_accent(accent_encoder, base_features)
+    # return np.concatenate((base_features, encoded.flatten()))
+    return base_features
 
 
 def process_file_dev(

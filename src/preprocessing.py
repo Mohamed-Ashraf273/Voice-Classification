@@ -7,7 +7,8 @@ import os
 import pandas as pd
 import pickle
 import shutil
-from imblearn.under_sampling import RandomUnderSampler, NearMiss
+from imblearn.pipeline import make_pipeline
+from imblearn.under_sampling import RandomUnderSampler, TomekLinks
 from scipy.signal import butter, lfilter
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
@@ -80,6 +81,42 @@ def get_test_dir(paths, accent_train):
                 break
 
 
+def balanced_undersampling_pipeline(
+    X, y, min_samples=10, majority_ratio=3, random_state=42
+):
+    """
+    More conservative undersampling that:
+    1. Protects tiny classes (< min_samples)
+    2. Only reduces true majority classes
+    3. Never drops below min_samples
+    """
+    unique_classes, class_counts = np.unique(y, return_counts=True)
+    minority_count = np.min(class_counts)
+
+    protected_classes = [
+        cls for cls, count in zip(unique_classes, class_counts) if count < min_samples
+    ]
+
+    sampling_strategy = {}
+    for cls, count in zip(unique_classes, class_counts):
+        if cls in protected_classes:
+            continue
+        target = int(minority_count * majority_ratio)
+        sampling_strategy[cls] = min(count, max(target, min_samples))
+
+    if not sampling_strategy:
+        return X, y
+
+    undersampler = RandomUnderSampler(
+        sampling_strategy=sampling_strategy, random_state=random_state
+    )
+
+    tomek = TomekLinks(sampling_strategy="majority")
+
+    pipeline = make_pipeline(undersampler, tomek)
+    return pipeline.fit_resample(X, y)
+
+
 def preprocessing_features(path, save_test, accent_train, datapath):
     df = pd.read_csv(path)
     y = df["label"]
@@ -102,7 +139,12 @@ def preprocessing_features(path, save_test, accent_train, datapath):
     x_test, x_val, y_test, y_val = train_test_split(
         x_test, y_test, test_size=0.5, random_state=42
     )
-    under_sample = NearMiss(version=1, n_neighbors=2)
+
+    # second plan
+    # sampling_strategy = {0: 31779}
+    # undersampler = RandomUnderSampler(sampling_strategy=sampling_strategy)
+    # X_resampled, y_resampled = undersampler.fit_resample(x_train, y_train)
+
     scaler = StandardScaler()
     x_train = pd.DataFrame(x_train)
     if accent_train:
@@ -114,9 +156,15 @@ def preprocessing_features(path, save_test, accent_train, datapath):
         y_val = y_val.values.argmax(axis=1)
     else:
         y_train = pd.DataFrame(y_train.tolist())
-    # X_resampled, y_resampled = x_train[:10000], y_train[:10000]
-    X_resampled, y_resampled = under_sample.fit_resample(x_train, y_train)
-    x_train = scaler.fit_transform(X_resampled)
+
+    # X_resampled, y_resampled = x_train[:80000], y_train[:80000]
+    print(np.unique(y_train, return_counts=True))
+    x_resampled, y_resampled = balanced_undersampling_pipeline(
+        x_train, y_train, min_samples=9000, majority_ratio=3
+    )
+    print(np.unique(y_resampled, return_counts=True))
+
+    x_train = scaler.fit_transform(x_resampled)
     x_val = scaler.transform(x_val)
     if accent_train:
         with open("./data/scaler_accents.pkl", "wb") as f:

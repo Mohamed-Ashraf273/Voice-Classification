@@ -15,7 +15,7 @@ def extract_features(datapath, accent_feature_extraction=False, production=False
     elif accent_feature_extraction:
         output_path = "./data/features_accents.csv"
     else:
-        output_path = "data/features_trial.csv"
+        output_path = "data/features.csv"
     feature_extraction.get_features(
         metadata_path,
         output_path,
