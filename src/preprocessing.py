@@ -51,23 +51,23 @@ def bandpass_filter(data, lowcut=100, highcut=4000, fs=16000, order=5):
 def augment_audio(y, sr):
     y_stretch = librosa.effects.time_stretch(y, rate=0.8 + 0.4 * np.random.random())
     y_shift = librosa.effects.pitch_shift(
-        y_stretch, sr=sr, n_steps=np.random.randint(-3, 4)
+        y, sr=sr, n_steps=np.random.randint(-3, 4)
     )
     noise = np.random.randn(len(y)) * 0.005 * np.random.random()
-    y_shift = y + noise
-    return y_shift
+    y_noise = y + noise
+    return [y_stretch, y_shift, y_noise]
 
 
 def preprocess_audio(y, sr, augment):
     if augment:
-        y = augment_audio(y, sr)
+        y = augment_audio(y, sr)[0]
     y = remove_silence(y)
     y_filtered = bandpass_filter(y, fs=sr)
     y_filtered = y_filtered / np.max(np.abs(y_filtered))
     return y_filtered
 
 
-def get_test_dir(paths, accent_train):
+def get_test_dir(paths):
     batches = [
         os.path.join("data/voice_project_data", f)
         for f in os.listdir("data/voice_project_data")
@@ -79,10 +79,7 @@ def get_test_dir(paths, accent_train):
         for batch in batches
         for file in os.listdir(batch)
     ]
-    if accent_train:
-        test_dir = "./data/test_accents"
-    else:
-        test_dir = "./data/test"
+    test_dir = "./data/test"
     os.makedirs(test_dir, exist_ok=True)
     copied = 0
     for file_name in paths:
@@ -129,7 +126,7 @@ def balanced_undersampling_pipeline(
     return pipeline.fit_resample(X, y)
 
 
-def preprocessing_features(path, save_test, accent_train, datapath):
+def preprocessing_features(path, save_test, datapath):
     df = pd.read_csv(path)
     y = df["label"]
     x = df["features"]
@@ -138,13 +135,9 @@ def preprocessing_features(path, save_test, accent_train, datapath):
         assert (
             datapath is not None
         ), "you should provide a datapath so we can create your test dir"
-        get_test_dir(paths, accent_train)
+        get_test_dir(paths)
     x = x.tolist()
     x = [np.asarray(s.split(","), np.float32) for s in x]
-    if accent_train:
-        y = [
-            np.asarray([int(float(i)) for i in s.split(",")], dtype=np.int8) for s in y
-        ]
     x_train, x_test, y_train, y_test = train_test_split(
         x, y, test_size=0.2, random_state=42
     )
@@ -159,15 +152,7 @@ def preprocessing_features(path, save_test, accent_train, datapath):
 
     scaler = StandardScaler()
     x_train = pd.DataFrame(x_train)
-    if accent_train:
-        y_train = pd.DataFrame(y_train)
-        y_test = pd.DataFrame(y_test)
-        y_val = pd.DataFrame(y_val)
-        y_train = y_train.values.argmax(axis=1)
-        y_test = y_test.values.argmax(axis=1)
-        y_val = y_val.values.argmax(axis=1)
-    else:
-        y_train = pd.DataFrame(y_train.tolist())
+    y_train = pd.DataFrame(y_train.tolist())
 
     # X_resampled, y_resampled = x_train[:80000], y_train[:80000]
     print(np.unique(y_train, return_counts=True))
@@ -178,12 +163,9 @@ def preprocessing_features(path, save_test, accent_train, datapath):
 
     x_train = scaler.fit_transform(x_resampled)
     x_val = scaler.transform(x_val)
-    if accent_train:
-        with open("./data/scaler_accents.pkl", "wb") as f:
-            pickle.dump(scaler, f)
-    else:
-        with open("./data/scaler.pkl", "wb") as f:
-            pickle.dump(scaler, f)
+
+    with open("./data/scaler.pkl", "wb") as f:
+        pickle.dump(scaler, f)
     return (
         x_train,
         x_test,

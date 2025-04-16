@@ -10,19 +10,11 @@ from src import preprocessing
 from threading import Lock
 
 
-def get_accent(accent_encoder, base_features):
-    pass
-
-
 def extract_features(
     y,
     sr,
     augment,
-    accent_feature_extraction,
-    add_accents_to_features,
     file,
-    accent_encoder=None,
-    accent_df=None,
     preprocess=False,
 ):
     if preprocess:
@@ -39,26 +31,13 @@ def extract_features(
             np.mean(spectral_centroid, axis=1),
         )
     )
-    if accent_feature_extraction or not add_accents_to_features:  # dev
-        return base_features
-    if accent_df is not None:  # dev
-        accent = accent_df[accent_df["path"] == file]["accent"]
-        accent_label = accent.values[0]
-        encoded = accent_encoder.transform(
-            pd.DataFrame([[accent_label]], columns=["accent"])
-        )
-    else:  # production
-        encoded = get_accent(accent_encoder, base_features)
-    return np.concatenate((base_features, encoded.flatten()))
+    return base_features
 
 
 def process_file_dev(
     file_path,
     file,
     augment,
-    accent_encoder,
-    accent_feature_extraction,
-    add_accents_to_features,
     df,
     lock,
 ):
@@ -71,21 +50,10 @@ def process_file_dev(
                 y,
                 sr,
                 augment,
-                accent_feature_extraction,
-                add_accents_to_features,
                 file=file,
-                accent_encoder=accent_encoder,
-                accent_df=df,
                 preprocess=True,
             )
-            if accent_feature_extraction:
-                accent = match.iloc[0]["accent"]
-                encoded_label = accent_encoder.transform(
-                    pd.DataFrame([[accent]], columns=["accent"])
-                )
-                label = ",".join(map(str, encoded_label.flatten()))
-            else:
-                label = match.iloc[0]["label"]
+            label = match.iloc[0]["label"]
             features_str = ",".join(map(str, features))
             return [features_str, label, file]
         else:
@@ -100,9 +68,6 @@ def process_file_prod(
     file_path,
     file,
     augment,
-    accent_encoder,
-    accent_feature_extraction,
-    add_accents_to_features,
     *_,
 ):
     try:
@@ -111,10 +76,7 @@ def process_file_prod(
             y,
             sr,
             augment,
-            accent_feature_extraction,
-            add_accents_to_features,
             file=file,
-            accent_encoder=accent_encoder,
             preprocess=True,
         )
         features_str = ",".join(map(str, features))
@@ -129,8 +91,6 @@ def get_features(
     metadata_path,
     output_path,
     production,
-    add_accents_to_features,
-    accent_feature_extraction,
     max_workers=12,
 ):
     data_rows = []
@@ -139,24 +99,11 @@ def get_features(
     if production:
         files = sorted(os.listdir(metadata_path))
         all_files = [(os.path.join(metadata_path, file), file) for file in files]
-        with open("./data/accent_encoder.pkl", "rb") as f:
-            accent_encoder = pickle.load(f)
         process_file = process_file_prod
         df = None
     else:
         data_file = os.path.join(metadata_path, "filtered_data_labeled.tsv")
         df = pd.read_csv(data_file, sep="\t")
-        df["accent"] = df["accent"].fillna("none")
-        # df = df.dropna(subset=["accent"]) #dropping it
-
-        if accent_feature_extraction:
-            with open("./data/accent_encoder.pkl", "rb") as f:
-                accent_encoder = pickle.load(f)
-        else:
-            accent_encoder = OneHotEncoder(sparse_output=False, handle_unknown="ignore")
-            accent_encoder.fit(df[["accent"]])
-            with open("./data/accent_encoder.pkl", "wb") as f:
-                pickle.dump(accent_encoder, f)
 
         batches = [
             os.path.join(metadata_path, f)
@@ -183,9 +130,6 @@ def get_features(
                 file_path,
                 file,
                 augment,
-                accent_encoder,
-                accent_feature_extraction,
-                add_accents_to_features,
                 df,
                 lock,
             )
