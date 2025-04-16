@@ -9,7 +9,6 @@ from pathlib import Path
 
 def extract_features(
     datapath,
-    augment,
     production=False,
 ):
     start = time.time()
@@ -18,10 +17,7 @@ def extract_features(
         output_path = "./data/features_prod.csv"
     else:
         output_path = "data/features.csv"
-    if augment:
-        print("Audios will be augmented")
     feature_extraction.get_features(
-        augment,
         metadata_path,
         output_path,
         production,
@@ -34,9 +30,9 @@ def plot_data_distribution(path):
     metrics.plot_data_distribution(path)
 
 
-def train_classifier(path, save_test, datapath, model_type="svc"):
+def train_classifier(path, gender, age, make_test_dir, datapath, model_type="xgboost"):
     x_test, x_val, y_test, y_val = classifier.train(
-        path, save_test, datapath, model_type=model_type
+        path, gender, age, make_test_dir, datapath, model_type=model_type
     )
     return x_test, x_val, y_test, y_val
 
@@ -51,8 +47,8 @@ def save_test_data(x_test, y_test, filename="./data/test_data.json"):
     print(f"Test data saved to {filename}")
 
 
-def get_metrics(model, x_test, y_test):
-    metrics.show(model, x_test, y_test)
+def get_metrics(model, x_test, y_test, gfas, gender_model=None, age_model=None):
+    metrics.show(model, x_test, y_test, gfas, gender_model, age_model)
 
 
 def predict_test_data(model, x_test):
@@ -60,41 +56,57 @@ def predict_test_data(model, x_test):
 
 
 def dev(
-    model,
+    model="xgboost",
     datapath=None,
-    augment=False,
     features_file_path=None,
     train=False,
+    gender=False,
+    age=False,
     save_test=False,
+    make_test_dir=False
 ):
     if train:
         if features_file_path is None:
             raise ValueError("features_file_path must be provided when train is True")
         print("Training mode")
+        if gender:
+            print("Gender training")
+        elif age:
+            print("Age training")
+        else:
+            print("Normal training")
         model_selected = model
         x_test, x_val, y_test, y_val = train_classifier(
             features_file_path,
-            save_test,
+            gender,
+            age,
+            make_test_dir,
             datapath,
             model_type=model_selected,
         )
         if save_test:
             save_test_data(x_test, y_test)
-
-        with open(f"./data/model_{model_selected}.pkl", "rb") as file:
-            loaded_model = pickle.load(file)
-        get_metrics(loaded_model, x_val, y_val)
+        if gender:
+            with open(f"./data/model_{model_selected}_gender.pkl", "rb") as file:
+                loaded_model = pickle.load(file)
+        elif age:
+            with open(f"./data/model_{model_selected}_age.pkl", "rb") as file:
+                loaded_model = pickle.load(file)
+        else:
+            with open(f"./data/model_{model_selected}.pkl", "rb") as file:
+                loaded_model = pickle.load(file)
+        get_metrics(loaded_model, x_val, y_val, gfas=False)
     else:
         print("Feature extracting mode")
         if datapath is None:
             raise ValueError("datapath must be provided in feature extracting mode")
+
         extract_features(
             datapath,
-            augment,
         )
 
 
-def predict_all(test_file_path, model_selected="svc"):
+def predict_all(test_file_path, model_selected="xgboost", gfas=False):
     print(
         "This function will predict on our model, but if you trained a model it will override ours."
     )
@@ -102,13 +114,23 @@ def predict_all(test_file_path, model_selected="svc"):
         data = json.load(file)
     x_test = np.array(data["x_test"])
     y_test = np.array(data["y_test"])
-
-    with open(f"./data/model_{model_selected}.pkl", "rb") as file:
-        loaded_model = pickle.load(file)
-    with open("./data/scaler.pkl", "rb") as f:
-        scaler = pickle.load(f)
+    if gfas:
+        with open(f"data/model_{model_selected}_gender.pkl", "rb") as file:
+            gender_model = pickle.load(file)
+        with open(f"data/model_{model_selected}_age.pkl", "rb") as file:
+            age_model = pickle.load(file)
+        with open(f"./data/scaler_gfas_{model_selected}.pkl", "rb") as f:
+            scaler = pickle.load(f)
+        loaded_model = None
+    else:
+        gender_model = None
+        age_model = None
+        with open(f"./data/model_{model_selected}.pkl", "rb") as file:
+            loaded_model = pickle.load(file)
+        with open(f"./data/scaler_{model_selected}.pkl", "rb") as f:
+            scaler = pickle.load(f)
     x_test = scaler.transform(x_test)
-    get_metrics(loaded_model, x_test, y_test)
+    get_metrics(loaded_model, x_test, y_test, gfas, gender_model, age_model)
 
 
 def final_out(test_file_path, model_selected):

@@ -13,14 +13,12 @@ from threading import Lock
 def extract_features(
     y,
     sr,
-    augment,
-    file,
     preprocess=False,
 ):
     if preprocess:
-        y = preprocessing.preprocess_audio(y, sr, augment)
+        y = preprocessing.preprocess_audio(y, sr)
 
-    mfccs = librosa.feature.mfcc(y=y, sr=sr, n_mfcc=13)
+    mfccs = librosa.feature.mfcc(y=y, sr=sr, n_mfcc=100)
     chroma = librosa.feature.chroma_stft(y=y, sr=sr)
     spectral_centroid = librosa.feature.spectral_centroid(y=y, sr=sr)
     base_features = np.concatenate(
@@ -37,7 +35,6 @@ def extract_features(
 def process_file_dev(
     file_path,
     file,
-    augment,
     df,
     lock,
 ):
@@ -49,8 +46,6 @@ def process_file_dev(
             features = extract_features(
                 y,
                 sr,
-                augment,
-                file=file,
                 preprocess=True,
             )
             label = match.iloc[0]["label"]
@@ -67,7 +62,6 @@ def process_file_dev(
 def process_file_prod(
     file_path,
     file,
-    augment,
     *_,
 ):
     try:
@@ -75,8 +69,6 @@ def process_file_prod(
         features = extract_features(
             y,
             sr,
-            augment,
-            file=file,
             preprocess=True,
         )
         features_str = ",".join(map(str, features))
@@ -87,7 +79,6 @@ def process_file_prod(
 
 
 def get_features(
-    augment,
     metadata_path,
     output_path,
     production,
@@ -129,7 +120,6 @@ def get_features(
                 process_file,
                 file_path,
                 file,
-                augment,
                 df,
                 lock,
             )

@@ -29,8 +29,10 @@ def get_mse(sig1, sig2):
     return np.mean((sig1 - sig2) ** 2)
 
 
-def remove_silence(y, top_db=30):
-    y_trimmed, _ = librosa.effects.trim(y, top_db=top_db)
+def remove_silence(y, top_db=20, frame_length=256, hop_length=64):
+    y_trimmed, _ = librosa.effects.trim(
+        y, top_db=top_db, frame_length=frame_length, hop_length=hop_length
+    )
     return y_trimmed
 
 
@@ -42,25 +44,13 @@ def butter_bandpass(lowcut, highcut, fs, order=5):
     return b, a
 
 
-def bandpass_filter(data, lowcut=100, highcut=4000, fs=16000, order=5):
+def bandpass_filter(data, lowcut=80, highcut=4000, fs=16000, order=5):
     b, a = butter_bandpass(lowcut, highcut, fs, order)
     y_filtered = lfilter(b, a, data)
     return y_filtered
 
 
-def augment_audio(y, sr):
-    y_stretch = librosa.effects.time_stretch(y, rate=0.8 + 0.4 * np.random.random())
-    y_shift = librosa.effects.pitch_shift(
-        y, sr=sr, n_steps=np.random.randint(-3, 4)
-    )
-    noise = np.random.randn(len(y)) * 0.005 * np.random.random()
-    y_noise = y + noise
-    return [y_stretch, y_shift, y_noise]
-
-
-def preprocess_audio(y, sr, augment):
-    if augment:
-        y = augment_audio(y, sr)[0]
+def preprocess_audio(y, sr):
     y = remove_silence(y)
     y_filtered = bandpass_filter(y, fs=sr)
     y_filtered = y_filtered / np.max(np.abs(y_filtered))
@@ -126,12 +116,17 @@ def balanced_undersampling_pipeline(
     return pipeline.fit_resample(X, y)
 
 
-def preprocessing_features(path, save_test, datapath):
+def preprocessing_features(path, gender, age, make_test_dir, datapath, model_type):
     df = pd.read_csv(path)
-    y = df["label"]
+    if gender:
+        y = (df["label"] == 0) | (df["label"] == 2)  # 1 for male 0 for female
+    elif age:
+        y = (df["label"] == 0) | (df["label"] == 1)  # 1 for male 20 for 50
+    else:
+        y = df["label"]
     x = df["features"]
     paths = df["path"]
-    if save_test:
+    if make_test_dir:
         assert (
             datapath is not None
         ), "you should provide a datapath so we can create your test dir"
@@ -161,11 +156,28 @@ def preprocessing_features(path, save_test, datapath):
     )
     print(np.unique(y_resampled, return_counts=True))
 
-    x_train = scaler.fit_transform(x_resampled)
-    x_val = scaler.transform(x_val)
-
-    with open("./data/scaler.pkl", "wb") as f:
-        pickle.dump(scaler, f)
+    if gender:
+        scaler = StandardScaler()
+        x_train = scaler.fit_transform(x_resampled)
+        x_val = scaler.transform(x_val)
+        with open(f"./data/scaler_gfas_{model_type}.pkl", "wb") as f:
+            pickle.dump(scaler, f)
+    elif age:
+        try:
+            with open(f"./data/scaler_gfas_{model_type}.pkl", "rb") as f:
+                scaler = pickle.load(f)
+        except:
+            raise ValueError(
+                "You should provide a scaler_gfas.pkl file to use the gfas model, by running train with gender first"
+            )
+        x_train = scaler.fit_transform(x_resampled)
+        x_val = scaler.transform(x_val)
+    else:
+        scaler = StandardScaler()
+        x_train = scaler.fit_transform(x_resampled)
+        x_val = scaler.transform(x_val)
+        with open(f"./data/scaler_{model_type}.pkl", "wb") as f:
+            pickle.dump(scaler, f)
     return (
         x_train,
         x_test,
