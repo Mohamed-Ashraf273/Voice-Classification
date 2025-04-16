@@ -8,7 +8,11 @@ from pathlib import Path
 
 
 def extract_features(
-    datapath, add_accents_to_features, accent_feature_extraction=False, production=False
+    datapath,
+    augment,
+    add_accents_to_features,
+    accent_feature_extraction=False,
+    production=False,
 ):
     start = time.time()
     metadata_path = datapath
@@ -18,7 +22,12 @@ def extract_features(
         output_path = "./data/features_accents.csv"
     else:
         output_path = "data/features.csv"
+    if augment:
+        print("Audios will be augmented")
+    if add_accents_to_features:
+        print("Accents will be added to features")
     feature_extraction.get_features(
+        augment,
         metadata_path,
         output_path,
         production,
@@ -63,6 +72,7 @@ def predict_test_data(model, x_test):
 def dev(
     model,
     datapath=None,
+    augment=False,
     features_file_path=None,
     accent_feature_extraction=False,
     add_accents_to_features=False,
@@ -97,6 +107,7 @@ def dev(
             raise ValueError("datapath must be provided in feature extracting mode")
         extract_features(
             datapath,
+            augment,
             add_accents_to_features,
             accent_feature_extraction=accent_feature_extraction,
         )
@@ -125,6 +136,9 @@ def predict_all(test_file_path, accent_test=False, model_selected="svc"):
 
 
 def final_out(test_file_path, model_selected):
+    raise ValueError(
+        "This function is not fully supported yet. Please use the predict_all function instead."
+    )
     print(
         "This function will predict on our model, but if you trained a model it will override ours."
     )

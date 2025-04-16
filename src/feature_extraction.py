@@ -17,6 +17,7 @@ def get_accent(accent_encoder, base_features):
 def extract_features(
     y,
     sr,
+    augment,
     accent_feature_extraction,
     add_accents_to_features,
     file,
@@ -25,7 +26,7 @@ def extract_features(
     preprocess=False,
 ):
     if preprocess:
-        y = preprocessing.preprocess_audio(y, sr)
+        y = preprocessing.preprocess_audio(y, sr, augment)
 
     mfccs = librosa.feature.mfcc(y=y, sr=sr, n_mfcc=13)
     chroma = librosa.feature.chroma_stft(y=y, sr=sr)
@@ -40,7 +41,6 @@ def extract_features(
     )
     if accent_feature_extraction or not add_accents_to_features:  # dev
         return base_features
-    print("Accents will be added :)")
     if accent_df is not None:  # dev
         accent = accent_df[accent_df["path"] == file]["accent"]
         accent_label = accent.values[0]
@@ -55,6 +55,7 @@ def extract_features(
 def process_file_dev(
     file_path,
     file,
+    augment,
     accent_encoder,
     accent_feature_extraction,
     add_accents_to_features,
@@ -69,6 +70,7 @@ def process_file_dev(
             features = extract_features(
                 y,
                 sr,
+                augment,
                 accent_feature_extraction,
                 add_accents_to_features,
                 file=file,
@@ -97,6 +99,7 @@ def process_file_dev(
 def process_file_prod(
     file_path,
     file,
+    augment,
     accent_encoder,
     accent_feature_extraction,
     add_accents_to_features,
@@ -107,6 +110,7 @@ def process_file_prod(
         features = extract_features(
             y,
             sr,
+            augment,
             accent_feature_extraction,
             add_accents_to_features,
             file=file,
@@ -121,6 +125,7 @@ def process_file_prod(
 
 
 def get_features(
+    augment,
     metadata_path,
     output_path,
     production,
@@ -177,6 +182,7 @@ def get_features(
                 process_file,
                 file_path,
                 file,
+                augment,
                 accent_encoder,
                 accent_feature_extraction,
                 add_accents_to_features,

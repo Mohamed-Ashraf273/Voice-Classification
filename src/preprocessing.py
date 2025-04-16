@@ -42,13 +42,25 @@ def butter_bandpass(lowcut, highcut, fs, order=5):
     return b, a
 
 
-def bandpass_filter(data, lowcut=300, highcut=3400, fs=16000, order=5):
+def bandpass_filter(data, lowcut=100, highcut=4000, fs=16000, order=5):
     b, a = butter_bandpass(lowcut, highcut, fs, order)
     y_filtered = lfilter(b, a, data)
     return y_filtered
 
 
-def preprocess_audio(y, sr):
+def augment_audio(y, sr):
+    y_stretch = librosa.effects.time_stretch(y, rate=0.8 + 0.4 * np.random.random())
+    y_shift = librosa.effects.pitch_shift(
+        y_stretch, sr=sr, n_steps=np.random.randint(-3, 4)
+    )
+    noise = np.random.randn(len(y)) * 0.005 * np.random.random()
+    y_shift = y + noise
+    return y_shift
+
+
+def preprocess_audio(y, sr, augment):
+    if augment:
+        y = augment_audio(y, sr)
     y = remove_silence(y)
     y_filtered = bandpass_filter(y, fs=sr)
     y_filtered = y_filtered / np.max(np.abs(y_filtered))
@@ -160,7 +172,7 @@ def preprocessing_features(path, save_test, accent_train, datapath):
     # X_resampled, y_resampled = x_train[:80000], y_train[:80000]
     print(np.unique(y_train, return_counts=True))
     x_resampled, y_resampled = balanced_undersampling_pipeline(
-        x_train, y_train, min_samples=9000, majority_ratio=3
+        x_train, y_train, min_samples=2000, majority_ratio=3, random_state=42
     )
     print(np.unique(y_resampled, return_counts=True))
 
