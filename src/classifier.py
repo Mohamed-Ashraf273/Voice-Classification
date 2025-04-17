@@ -74,7 +74,7 @@ def logistic_classifier(x_train, y_train):
     return model.fit(x_train, y_train)
 
 
-def xgboost_classifier(x_train, y_train):
+def xgboost_classifier_grid_search(x_train, y_train):
     model = XGBClassifier(
         objective="multi:softmax",
         eval_metric="mlogloss",
@@ -82,18 +82,74 @@ def xgboost_classifier(x_train, y_train):
         use_label_encoder=False,
         random_state=42,
     )
+    # Best parameters: {'colsample_bytree': 0.8, 'gamma': 0, 'learning_rate': 0.2, 'max_depth': 6, 'n_estimators': 200, 'reg_alpha': 0.1, 'reg_lambda': 0, 'subsample': 0.8}
+    # Best parameters: {'colsample_bytree': 1.0, 'gamma': 0, 'learning_rate': 0.2, 'max_depth': 9, 'n_estimators': 300, 'reg_alpha': 0.1, 'reg_lambda': 0.1, 'subsample': 0.9}
+    # {'colsample_bytree': 1.0, 'gamma': 0, 'learning_rate': 0.2, 'max_depth': 9, 'n_estimators': 400, 'reg_alpha': 0.1, 'reg_lambda': 0, 'subsample': 0.8}
+    # {'colsample_bytree': 1.0, 'gamma': 0, 'learning_rate': 0.2, 'max_depth': 9, 'n_estimators': 500, 'reg_alpha': 0.1, 'reg_lambda': 0.1, 'subsample': 0.9}
+    # Best parameters: {'colsample_bytree': 1.0, 'gamma': 0, 'learning_rate': 0.2, 'max_depth': 9, 'n_estimators': 500, 'reg_alpha': 0, 'reg_lambda': 0, 'subsample': 0.9}
+    param_grid = {
+        "n_estimators": [400, 500],
+        "max_depth": [9],
+        "learning_rate": [0.2],
+        "subsample": [0.8, 0.9],
+        "colsample_bytree": [1.0],
+        "gamma": [0],
+        "reg_alpha": [0, 0.1],
+        "reg_lambda": [0, 0.1],
+    }
+
+    grid_search = GridSearchCV(
+        estimator=model,
+        param_grid=param_grid,
+        cv=5,
+        scoring="f1_weighted",
+        n_jobs=-1,
+        verbose=10,
+    )
+
+    grid_search.fit(x_train, y_train)
+    best_model = grid_search.best_estimator_
+
+    print("Best parameters:", grid_search.best_params_)
+    print("Best weighted F1 CV score:", grid_search.best_score_)
+
+    return best_model
+
+
+def xgboost_classifier(x_train, y_train):
+    model = XGBClassifier(
+        objective="multi:softmax",
+        eval_metric="mlogloss",
+        num_class=len(set(y_train)),
+        use_label_encoder=False,
+        random_state=42,
+        colsample_bytree=1.0,
+        gamma=0,
+        learning_rate=0.2,
+        max_depth=9,
+        n_estimators=500,
+        reg_alpha=0,
+        reg_lambda=0,
+        subsample=0.9,
+    )
     return model.fit(x_train, y_train)
 
 
-def train(path, gender, age, make_test_dir, datapath, model_type):
+def train(path, gender, age, grid_search, model_type):
     x_train, x_test, x_val, y_train, y_test, y_val = (
-        preprocessing.preprocessing_features(
-            path, gender, age, make_test_dir, datapath, model_type
-        )
+        preprocessing.preprocessing_features(path, gender, age, model_type)
     )
 
+    if grid_search and model_type != "xgboost":
+        raise ValueError(
+            f"Grid search is only implemented for 'xgboost', not {model_type}"
+        )
+
     if model_type == "xgboost":
-        best_classifier = xgboost_classifier(x_train, y_train)
+        if grid_search:
+            best_classifier = xgboost_classifier_grid_search(x_train, y_train)
+        else:
+            best_classifier = xgboost_classifier(x_train, y_train)
     elif model_type == "logistic":
         best_classifier = logistic_classifier(x_train, y_train)
     elif model_type == "svc":

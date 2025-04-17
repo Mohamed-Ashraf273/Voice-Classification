@@ -3,10 +3,8 @@ import librosa.display
 import librosa.effects
 import matplotlib.pyplot as plt
 import numpy as np
-import os
 import pandas as pd
 import pickle
-import shutil
 from imblearn.pipeline import make_pipeline
 from imblearn.under_sampling import RandomUnderSampler, TomekLinks
 from scipy.signal import butter, lfilter
@@ -57,29 +55,6 @@ def preprocess_audio(y, sr):
     return y_filtered
 
 
-def get_test_dir(paths):
-    batches = [
-        os.path.join("data/voice_project_data", f)
-        for f in os.listdir("data/voice_project_data")
-        if f.startswith("audio")
-    ]
-
-    all_files = [
-        (os.path.join(batch, file), file)
-        for batch in batches
-        for file in os.listdir(batch)
-    ]
-    test_dir = "./data/test"
-    os.makedirs(test_dir, exist_ok=True)
-    copied = 0
-    for file_name in paths:
-        for full_path, fname in all_files:
-            if fname == file_name:
-                shutil.copy(full_path, os.path.join(test_dir, fname))
-                copied += 1
-                break
-
-
 def balanced_undersampling_pipeline(
     X, y, min_samples=10, majority_ratio=3, random_state=42
 ):
@@ -116,7 +91,7 @@ def balanced_undersampling_pipeline(
     return pipeline.fit_resample(X, y)
 
 
-def preprocessing_features(path, gender, age, make_test_dir, datapath, model_type):
+def preprocessing_features(path, gender, age, model_type):
     df = pd.read_csv(path)
     if gender:
         y = (df["label"] == 0) | (df["label"] == 2)  # 1 for male 0 for female
@@ -125,12 +100,6 @@ def preprocessing_features(path, gender, age, make_test_dir, datapath, model_typ
     else:
         y = df["label"]
     x = df["features"]
-    paths = df["path"]
-    if make_test_dir:
-        assert (
-            datapath is not None
-        ), "you should provide a datapath so we can create your test dir"
-        get_test_dir(paths)
     x = x.tolist()
     x = [np.asarray(s.split(","), np.float32) for s in x]
     x_train, x_test, y_train, y_test = train_test_split(

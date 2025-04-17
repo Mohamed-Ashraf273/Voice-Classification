@@ -23,7 +23,7 @@ def show(model, x_test, y_test, gfas, gender_model, age_model):
     else:
         y_pred = model.predict(x_test)
     print("accuracy report:", accuracy_score(y_test, y_pred))
-    print("classification report:", classification_report(y_test, y_pred))
+    print(classification_report(y_test, y_pred))
     sns.heatmap(confusion_matrix(y_test, y_pred), annot=True, fmt="d")
     plt.xlabel("Predicted")
     plt.ylabel("True")

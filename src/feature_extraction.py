@@ -3,25 +3,24 @@ import librosa
 import numpy as np
 import os
 import pandas as pd
-import pickle
-from concurrent.futures import ThreadPoolExecutor, as_completed
-from sklearn.preprocessing import OneHotEncoder
+from concurrent.futures import ProcessPoolExecutor, as_completed
 from src import preprocessing
-from threading import Lock
 
 
-def extract_features(
-    y,
-    sr,
-    preprocess=False,
-):
+def chunkify(lst, chunk_size):
+    """Split list into chunks for batch processing"""
+    return [lst[i : i + chunk_size] for i in range(0, len(lst), chunk_size)]
+
+
+def extract_features(y, sr, preprocess=False):
+    """Extract audio features from raw audio"""
     if preprocess:
         y = preprocessing.preprocess_audio(y, sr)
 
     mfccs = librosa.feature.mfcc(y=y, sr=sr, n_mfcc=100)
     chroma = librosa.feature.chroma_stft(y=y, sr=sr)
     spectral_centroid = librosa.feature.spectral_centroid(y=y, sr=sr)
-    base_features = np.concatenate(
+    return np.concatenate(
         (
             np.mean(mfccs, axis=1),
             np.std(mfccs, axis=1),
@@ -29,112 +28,86 @@ def extract_features(
             np.mean(spectral_centroid, axis=1),
         )
     )
-    return base_features
 
 
-def process_file_dev(
-    file_path,
-    file,
-    df,
-    lock,
-):
-    try:
-        with lock:
-            match = df[df["path"] == file]
-        if not match.empty:
+def process_file_batch(batch, metadata_dict, production):
+    """Process a batch of files in one process"""
+    results = []
+
+    for file_path, file in batch:
+        try:
+            if not production:
+                file_info = metadata_dict.get(file)
+                if file_info is None:
+                    print(f"Metadata not found for {file}")
+                    results.append(None)
+                    continue
+
             y, sr = librosa.load(file_path, sr=16000)
-            features = extract_features(
-                y,
-                sr,
-                preprocess=True,
-            )
-            label = match.iloc[0]["label"]
+            features = extract_features(y, sr, preprocess=True)
             features_str = ",".join(map(str, features))
-            return [features_str, label, file]
-        else:
-            print(f"Metadata not found for {file}")
-            return None
-    except Exception as e:
-        print(f"Failed to process {file}: {e}")
-        return "FAIL"
 
+            if production:
+                results.append([features_str, file])
+            else:
+                results.append([features_str, file_info["label"], file])
 
-def process_file_prod(
-    file_path,
-    file,
-    *_,
-):
-    try:
-        y, sr = librosa.load(file_path, sr=16000)
-        features = extract_features(
-            y,
-            sr,
-            preprocess=True,
-        )
-        features_str = ",".join(map(str, features))
-        return [features_str, file]
-    except Exception as e:
-        print(f"Failed to process {file}: {e}")
-        return "FAIL"
+        except Exception as e:
+            print(f"Failed to process {file}: {e}")
+            results.append("FAIL")
+
+    return results
 
 
 def get_features(
-    metadata_path,
-    output_path,
-    production,
-    max_workers=12,
+    metadata_path, output_path, production, max_workers=12, chunk_size=500
 ):
-    data_rows = []
-    lock = Lock()
-
+    """Main function to extract features using multiprocessing"""
     if production:
         files = sorted(os.listdir(metadata_path))
         all_files = [(os.path.join(metadata_path, file), file) for file in files]
-        process_file = process_file_prod
-        df = None
+        metadata_dict = None
     else:
         data_file = os.path.join(metadata_path, "filtered_data_labeled.tsv")
         df = pd.read_csv(data_file, sep="\t")
+        metadata_dict = df.set_index("path").to_dict("index")
 
         batches = [
             os.path.join(metadata_path, f)
             for f in os.listdir(metadata_path)
             if f.startswith("audio")
         ]
-
         all_files = [
             (os.path.join(batch, file), file)
             for batch in batches
             for file in os.listdir(batch)
         ]
-        process_file = process_file_dev
 
     total_files = len(all_files)
     fail_to_load_count = 0
+    data_rows = []
 
-    print(f"Processing {total_files} files using {max_workers} threads...")
+    print(f"Processing {total_files} files using {max_workers} processes...")
 
-    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+    file_chunks = chunkify(all_files, chunk_size)
+
+    with ProcessPoolExecutor(max_workers=max_workers) as executor:
         futures = [
-            executor.submit(
-                process_file,
-                file_path,
-                file,
-                df,
-                lock,
-            )
-            for file_path, file in all_files
+            executor.submit(process_file_batch, chunk, metadata_dict, production)
+            for chunk in file_chunks
         ]
 
         for i, future in enumerate(as_completed(futures), 1):
-            result = future.result()
-            if result == "FAIL":
-                fail_to_load_count += 1
-            elif result:
-                data_rows.append(result)
+            batch_results = future.result()
+            for result in batch_results:
+                if result == "FAIL":
+                    fail_to_load_count += 1
+                elif result:
+                    data_rows.append(result)
 
-            if i % 100 == 0 or i == total_files:
-                print(f"Processed {i}/{total_files} files.")
+            if i % max_workers == 0 or i == len(file_chunks):
+                processed = min(i * chunk_size, total_files)
+                print(f"Processed {processed}/{total_files} files")
 
     with open(output_path, "w", newline="") as csvfile:
         writer = csv.writer(csvfile)

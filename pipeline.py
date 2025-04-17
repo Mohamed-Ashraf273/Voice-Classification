@@ -23,16 +23,16 @@ def extract_features(
         production,
         max_workers=12,
     )
-    print(f"Time taken: {time.time() - start:.2f} seconds")
+    print(f"Time taken to extract features: {time.time() - start:.2f} seconds")
 
 
 def plot_data_distribution(path):
     metrics.plot_data_distribution(path)
 
 
-def train_classifier(path, gender, age, make_test_dir, datapath, model_type="xgboost"):
+def train_classifier(path, gender, age, grid_search, model_type="xgboost"):
     x_test, x_val, y_test, y_val = classifier.train(
-        path, gender, age, make_test_dir, datapath, model_type=model_type
+        path, gender, age, grid_search, model_type=model_type
     )
     return x_test, x_val, y_test, y_val
 
@@ -57,6 +57,7 @@ def predict_test_data(model, x_test):
 
 def dev(
     model="xgboost",
+    grid_search=False,
     datapath=None,
     features_file_path=None,
     train=False,
@@ -64,7 +65,6 @@ def dev(
     age=False,
     save_test=False,
     save_val=False,
-    make_test_dir=False,
 ):
     if train:
         if features_file_path is None:
@@ -81,8 +81,7 @@ def dev(
             features_file_path,
             gender,
             age,
-            make_test_dir,
-            datapath,
+            grid_search,
             model_type=model_selected,
         )
         if save_test:
@@ -113,6 +112,7 @@ def predict_all(test_file_path, val=False, model_selected="xgboost", gfas=False)
     print(
         "This function will predict on our model, but if you trained a model it will override ours."
     )
+    start_time = time.time()
     with open(test_file_path, "r") as file:
         data = json.load(file)
     x_test = np.array(data["x_test"])
@@ -136,22 +136,22 @@ def predict_all(test_file_path, val=False, model_selected="xgboost", gfas=False)
     if not val:
         x_test = scaler.transform(x_test)
     get_metrics(loaded_model, x_test, y_test, gfas, gender_model, age_model)
+    print(f"Time taken to predict all: {time.time() - start_time:.2f} seconds")
 
 
 def final_out(test_file_path, model_selected):
-    raise ValueError(
-        "This function is not fully supported yet. Please use the predict_all function instead."
-    )
     print(
-        "This function will predict on our model, but if you trained a model it will override ours."
+        "This function will predict on our models (xgboost, svm, gmm and logistic), "
+        "but if you trained a model it will override ours."
     )
+    start_time = time.time()
     extract_features(test_file_path, production=True)
     df = pd.read_csv("./data/features_prod.csv")
     x_test = df["features"].values.tolist()
     x_test = [np.asarray(x.split(","), np.float32) for x in x_test]
     with open(f"./data/model_{model_selected}.pkl", "rb") as file:
         loaded_model = pickle.load(file)
-    with open("./data/scaler.pkl", "rb") as f:
+    with open(f"./data/scaler_{model_selected}.pkl", "rb") as f:
         scaler = pickle.load(f)
     x_test = scaler.transform(x_test)
     predictions = predict_test_data(loaded_model, x_test)
@@ -159,3 +159,4 @@ def final_out(test_file_path, model_selected):
         for pred in predictions:
             f.write(f"{pred}\n")
     print(f"Predictions saved to predictions_{model_selected}.txt")
+    print(f"Total time taken: {time.time() - start_time:.2f} seconds")

@@ -1,8 +1,9 @@
+ipython
 librosa
+matplotlib
 numpy
 pandas
 scikit-learn
-matplotlib
-seaborn
 scipy
-ipython
+seaborn
+xgboost
