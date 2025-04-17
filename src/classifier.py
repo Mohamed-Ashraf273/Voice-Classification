@@ -76,9 +76,9 @@ def logistic_classifier(x_train, y_train):
 
 def xgboost_classifier(x_train, y_train):
     model = XGBClassifier(
-        objective="multi:softmax",  
-        eval_metric="mlogloss",    
-        num_class=len(set(y_train)), 
+        objective="multi:softmax",
+        eval_metric="mlogloss",
+        num_class=len(set(y_train)),
         use_label_encoder=False,
         random_state=42,
     )
@@ -87,7 +87,9 @@ def xgboost_classifier(x_train, y_train):
 
 def train(path, gender, age, make_test_dir, datapath, model_type):
     x_train, x_test, x_val, y_train, y_test, y_val = (
-        preprocessing.preprocessing_features(path, gender, age, make_test_dir, datapath, model_type)
+        preprocessing.preprocessing_features(
+            path, gender, age, make_test_dir, datapath, model_type
+        )
     )
 
     if model_type == "xgboost":
@@ -99,7 +101,9 @@ def train(path, gender, age, make_test_dir, datapath, model_type):
     elif model_type == "gmm":
         best_classifier = gmm_classifier(x_train, y_train)
     else:
-        raise ValueError("Invalid model_type. Choose 'svc' or 'gmm' or 'xgboost' or logistic.")
+        raise ValueError(
+            "Invalid model_type. Choose 'svc' or 'gmm' or 'xgboost' or logistic."
+        )
 
     if gender:
         pickle.dump(

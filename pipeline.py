@@ -63,7 +63,8 @@ def dev(
     gender=False,
     age=False,
     save_test=False,
-    make_test_dir=False
+    save_val=False,
+    make_test_dir=False,
 ):
     if train:
         if features_file_path is None:
@@ -86,6 +87,8 @@ def dev(
         )
         if save_test:
             save_test_data(x_test, y_test)
+        if save_val:
+            save_test_data(x_val, y_val, filename="./data/test_val.json")
         if gender:
             with open(f"./data/model_{model_selected}_gender.pkl", "rb") as file:
                 loaded_model = pickle.load(file)
@@ -106,7 +109,7 @@ def dev(
         )
 
 
-def predict_all(test_file_path, model_selected="xgboost", gfas=False):
+def predict_all(test_file_path, val=False, model_selected="xgboost", gfas=False):
     print(
         "This function will predict on our model, but if you trained a model it will override ours."
     )
@@ -114,6 +117,7 @@ def predict_all(test_file_path, model_selected="xgboost", gfas=False):
         data = json.load(file)
     x_test = np.array(data["x_test"])
     y_test = np.array(data["y_test"])
+    print("Data distribution: ", np.unique(y_test, return_counts=True))
     if gfas:
         with open(f"data/model_{model_selected}_gender.pkl", "rb") as file:
             gender_model = pickle.load(file)
@@ -129,7 +133,8 @@ def predict_all(test_file_path, model_selected="xgboost", gfas=False):
             loaded_model = pickle.load(file)
         with open(f"./data/scaler_{model_selected}.pkl", "rb") as f:
             scaler = pickle.load(f)
-    x_test = scaler.transform(x_test)
+    if not val:
+        x_test = scaler.transform(x_test)
     get_metrics(loaded_model, x_test, y_test, gfas, gender_model, age_model)
 
 

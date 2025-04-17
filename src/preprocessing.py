@@ -148,13 +148,20 @@ def preprocessing_features(path, gender, age, make_test_dir, datapath, model_typ
     scaler = StandardScaler()
     x_train = pd.DataFrame(x_train)
     y_train = pd.DataFrame(y_train.tolist())
+    x_val = pd.DataFrame(x_val)
+    y_val = pd.DataFrame(y_val.tolist())
 
     # X_resampled, y_resampled = x_train[:80000], y_train[:80000]
-    print(np.unique(y_train, return_counts=True))
+    print("Train data before balancing: ", np.unique(y_train, return_counts=True))
     x_resampled, y_resampled = balanced_undersampling_pipeline(
-        x_train, y_train, min_samples=2000, majority_ratio=3, random_state=42
+        x_train, y_train, min_samples=5000, majority_ratio=2, random_state=42
     )
-    print(np.unique(y_resampled, return_counts=True))
+    print("Train data after balancing: ", np.unique(y_resampled, return_counts=True))
+    print("Validation data before balancing: ", np.unique(y_val, return_counts=True))
+    x_val, y_val = balanced_undersampling_pipeline(
+        x_val, y_val, min_samples=500, majority_ratio=1, random_state=42
+    )
+    print("Validation data after balancing: ", np.unique(y_val, return_counts=True))
 
     if gender:
         scaler = StandardScaler()
