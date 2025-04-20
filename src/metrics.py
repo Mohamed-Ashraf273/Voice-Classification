@@ -1,8 +1,7 @@
-import json
 import matplotlib.pyplot as plt
 import pandas as pd
-import pickle
 import seaborn as sns
+import time
 from sklearn.metrics import classification_report, accuracy_score, confusion_matrix
 
 
@@ -32,5 +31,11 @@ def show(model, x_test, y_test, gfas, gender_model, age_model):
 
 
 def get_predictions(model, x_test):
-    predictions = model.predict(x_test)
-    return predictions
+    times = []
+    predictions = []
+    for test in x_test:
+        start = time.time()
+        pred = model.predict([test])
+        times.append(time.time() - start)
+        predictions.append(pred[0])
+    return predictions, times

@@ -3,17 +3,16 @@ import librosa
 import numpy as np
 import os
 import pandas as pd
+import time
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from src import preprocessing
 
 
 def chunkify(lst, chunk_size):
-    """Split list into chunks for batch processing"""
     return [lst[i : i + chunk_size] for i in range(0, len(lst), chunk_size)]
 
 
 def extract_features(y, sr, preprocess=False):
-    """Extract audio features from raw audio"""
     if preprocess:
         y = preprocessing.preprocess_audio(y, sr)
 
@@ -31,7 +30,6 @@ def extract_features(y, sr, preprocess=False):
 
 
 def process_file_batch(batch, metadata_dict, production):
-    """Process a batch of files in one process"""
     results = []
 
     for file_path, file in batch:
@@ -44,11 +42,13 @@ def process_file_batch(batch, metadata_dict, production):
                     continue
 
             y, sr = librosa.load(file_path, sr=16000)
+            start_time = time.time()
             features = extract_features(y, sr, preprocess=True)
+            total_time_per_audio = time.time() - start_time
             features_str = ",".join(map(str, features))
 
             if production:
-                results.append([features_str, file])
+                results.append([features_str, total_time_per_audio, file])
             else:
                 results.append([features_str, file_info["label"], file])
 
@@ -59,10 +59,7 @@ def process_file_batch(batch, metadata_dict, production):
     return results
 
 
-def get_features(
-    metadata_path, output_path, production, max_workers=12, chunk_size=500
-):
-    """Main function to extract features using multiprocessing"""
+def get_features(metadata_path, output_path, production, max_workers=12, chunk_size=50):
     if production:
         files = sorted(os.listdir(metadata_path))
         all_files = [(os.path.join(metadata_path, file), file) for file in files]
@@ -112,7 +109,7 @@ def get_features(
     with open(output_path, "w", newline="") as csvfile:
         writer = csv.writer(csvfile)
         if production:
-            writer.writerow(["features", "path"])
+            writer.writerow(["features", "time_taken", "path"])
         else:
             writer.writerow(["features", "label", "path"])
         writer.writerows(data_rows)

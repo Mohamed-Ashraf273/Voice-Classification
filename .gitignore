@@ -1,2 +1,6 @@
 data/
+test/
+model/scaler_lgbm.pkl
+model/model_xgboost.pkl
+model/scaler_xgboost.pkl
 __pycache__

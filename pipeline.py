@@ -4,26 +4,23 @@ import pandas as pd
 import pickle
 import time
 from src import feature_extraction, classifier, metrics
-from pathlib import Path
 
 
 def extract_features(
     datapath,
     production=False,
 ):
-    start = time.time()
     metadata_path = datapath
     if production:
-        output_path = "./data/features_prod.csv"
+        output_path = "./features_prod.csv"
     else:
-        output_path = "data/features.csv"
+        output_path = "features.csv"
     feature_extraction.get_features(
         metadata_path,
         output_path,
         production,
         max_workers=12,
     )
-    print(f"Time taken to extract features: {time.time() - start:.2f} seconds")
 
 
 def plot_data_distribution(path):
@@ -37,7 +34,7 @@ def train_classifier(path, gender, age, grid_search, model_type="xgboost"):
     return x_test, x_val, y_test, y_val
 
 
-def save_test_data(x_test, y_test, filename="./data/test_data.json"):
+def save_test_data(x_test, y_test, filename="./test_data.json"):
     data = {
         "x_test": [x.tolist() for x in x_test],
         "y_test": y_test.tolist() if isinstance(y_test, np.ndarray) else list(y_test),
@@ -69,7 +66,7 @@ def dev(
     if train:
         if features_file_path is None:
             raise ValueError("features_file_path must be provided when train is True")
-        print("Training mode")
+        print(f"Training mode with model: {model}")
         if gender:
             print("Gender training")
         elif age:
@@ -87,15 +84,15 @@ def dev(
         if save_test:
             save_test_data(x_test, y_test)
         if save_val:
-            save_test_data(x_val, y_val, filename="./data/test_val.json")
+            save_test_data(x_val, y_val, filename="./test_val.json")
         if gender:
-            with open(f"./data/model_{model_selected}_gender.pkl", "rb") as file:
+            with open(f"./model/model_{model_selected}_gender.pkl", "rb") as file:
                 loaded_model = pickle.load(file)
         elif age:
-            with open(f"./data/model_{model_selected}_age.pkl", "rb") as file:
+            with open(f"./model/model_{model_selected}_age.pkl", "rb") as file:
                 loaded_model = pickle.load(file)
         else:
-            with open(f"./data/model_{model_selected}.pkl", "rb") as file:
+            with open(f"./model/model_{model_selected}.pkl", "rb") as file:
                 loaded_model = pickle.load(file)
         get_metrics(loaded_model, x_val, y_val, gfas=False)
     else:
@@ -119,19 +116,19 @@ def predict_all(test_file_path, val=False, model_selected="xgboost", gfas=False)
     y_test = np.array(data["y_test"])
     print("Data distribution: ", np.unique(y_test, return_counts=True))
     if gfas:
-        with open(f"data/model_{model_selected}_gender.pkl", "rb") as file:
+        with open(f"model/model_{model_selected}_gender.pkl", "rb") as file:
             gender_model = pickle.load(file)
-        with open(f"data/model_{model_selected}_age.pkl", "rb") as file:
+        with open(f"model/model_{model_selected}_age.pkl", "rb") as file:
             age_model = pickle.load(file)
-        with open(f"./data/scaler_gfas_{model_selected}.pkl", "rb") as f:
+        with open(f"./model/scaler_gfas_{model_selected}.pkl", "rb") as f:
             scaler = pickle.load(f)
         loaded_model = None
     else:
         gender_model = None
         age_model = None
-        with open(f"./data/model_{model_selected}.pkl", "rb") as file:
+        with open(f"./model/model_{model_selected}.pkl", "rb") as file:
             loaded_model = pickle.load(file)
-        with open(f"./data/scaler_{model_selected}.pkl", "rb") as f:
+        with open(f"./model/scaler_{model_selected}.pkl", "rb") as f:
             scaler = pickle.load(f)
     if not val:
         x_test = scaler.transform(x_test)
@@ -144,19 +141,26 @@ def final_out(test_file_path, model_selected):
         "This function will predict on our models (xgboost, svm, gmm and logistic), "
         "but if you trained a model it will override ours."
     )
-    start_time = time.time()
     extract_features(test_file_path, production=True)
-    df = pd.read_csv("./data/features_prod.csv")
+    df = pd.read_csv("./features_prod.csv")
     x_test = df["features"].values.tolist()
+    time_for_extract_features = df["time_taken"].values.tolist()
     x_test = [np.asarray(x.split(","), np.float32) for x in x_test]
-    with open(f"./data/model_{model_selected}.pkl", "rb") as file:
+    with open(f"./model/model_{model_selected}.pkl", "rb") as file:
         loaded_model = pickle.load(file)
-    with open(f"./data/scaler_{model_selected}.pkl", "rb") as f:
+    with open(f"./model/scaler_{model_selected}.pkl", "rb") as f:
         scaler = pickle.load(f)
     x_test = scaler.transform(x_test)
-    predictions = predict_test_data(loaded_model, x_test)
-    with open(f"./data/predictions_{model_selected}.txt", "w") as f:
+    predictions, time_to_predict = predict_test_data(loaded_model, x_test)
+    total_time = [
+        round(extract + predict, 3)
+        for extract, predict in zip(time_for_extract_features, time_to_predict)
+    ]
+    with open(f"./results.txt", "w") as f:
         for pred in predictions:
             f.write(f"{pred}\n")
-    print(f"Predictions saved to predictions_{model_selected}.txt")
-    print(f"Total time taken: {time.time() - start_time:.2f} seconds")
+    with open(f"./time.txt", "w") as f:
+        for t in total_time:
+            f.write(f"{t}\n")
+    print(f"Predictions saved to results.txt")
+    print(f"Times saved to time.txt")

@@ -123,7 +123,7 @@ def preprocessing_features(path, gender, age, model_type):
     # X_resampled, y_resampled = x_train[:80000], y_train[:80000]
     print("Train data before balancing: ", np.unique(y_train, return_counts=True))
     x_resampled, y_resampled = balanced_undersampling_pipeline(
-        x_train, y_train, min_samples=5000, majority_ratio=2, random_state=42
+        x_train, y_train, min_samples=13000, majority_ratio=2, random_state=42
     )
     print("Train data after balancing: ", np.unique(y_resampled, return_counts=True))
     print("Validation data before balancing: ", np.unique(y_val, return_counts=True))
@@ -136,11 +136,11 @@ def preprocessing_features(path, gender, age, model_type):
         scaler = StandardScaler()
         x_train = scaler.fit_transform(x_resampled)
         x_val = scaler.transform(x_val)
-        with open(f"./data/scaler_gfas_{model_type}.pkl", "wb") as f:
+        with open(f"./model/scaler_gfas_{model_type}.pkl", "wb") as f:
             pickle.dump(scaler, f)
     elif age:
         try:
-            with open(f"./data/scaler_gfas_{model_type}.pkl", "rb") as f:
+            with open(f"./model/scaler_gfas_{model_type}.pkl", "rb") as f:
                 scaler = pickle.load(f)
         except:
             raise ValueError(
@@ -152,7 +152,7 @@ def preprocessing_features(path, gender, age, model_type):
         scaler = StandardScaler()
         x_train = scaler.fit_transform(x_resampled)
         x_val = scaler.transform(x_val)
-        with open(f"./data/scaler_{model_type}.pkl", "wb") as f:
+        with open(f"./model/scaler_{model_type}.pkl", "wb") as f:
             pickle.dump(scaler, f)
     return (
         x_train,

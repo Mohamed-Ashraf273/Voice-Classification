@@ -1,9 +1,11 @@
 import numpy as np
 import pickle
-from sklearn.model_selection import GridSearchCV
-from sklearn.svm import SVC
+from lightgbm import LGBMClassifier
+from sklearn.ensemble import StackingClassifier
 from sklearn.linear_model import LogisticRegression
 from sklearn.mixture import GaussianMixture
+from sklearn.model_selection import GridSearchCV
+from sklearn.svm import SVC
 from sklearn.utils.class_weight import compute_class_weight
 from src import preprocessing
 from xgboost import XGBClassifier
@@ -75,6 +77,7 @@ def logistic_classifier(x_train, y_train):
 
 
 def xgboost_classifier_grid_search(x_train, y_train):
+    print("Grid search on xgboost started: ")
     model = XGBClassifier(
         objective="multi:softmax",
         eval_metric="mlogloss",
@@ -135,14 +138,124 @@ def xgboost_classifier(x_train, y_train):
     return model.fit(x_train, y_train)
 
 
+def lgbm_classifier_grid_search(x_train, y_train):
+    print("Grid search on lgbm started: ")
+    model = LGBMClassifier(
+        objective="multiclass", num_class=len(set(y_train)), random_state=42, verbose=-1
+    )
+
+    param_grid = {
+        "n_estimators": [500, 600],
+        "max_depth": [10, 11],
+        "learning_rate": [0.3, 0.4],
+        "subsample": [0.8, 0.9],
+        "colsample_bytree": [1.0],
+        "reg_alpha": [0, 0.1],
+        "reg_lambda": [0, 0.1],
+    }
+
+    grid_search = GridSearchCV(
+        estimator=model,
+        param_grid=param_grid,
+        cv=5,
+        scoring="f1_weighted",
+        n_jobs=-1,
+        verbose=10,
+    )
+
+    grid_search.fit(x_train, y_train)
+    best_model = grid_search.best_estimator_
+
+    print("Best parameters:", grid_search.best_params_)
+    print("Best weighted F1 CV score:", grid_search.best_score_)
+
+    return best_model
+
+
+def lgbm_classifier(x_train, y_train):
+    model = LGBMClassifier(
+        objective="multiclass",
+        num_class=len(set(y_train)),
+        random_state=42,
+        n_estimators=500,
+        max_depth=9,
+        learning_rate=0.2,
+        subsample=0.9,
+        colsample_bytree=1.0,
+        reg_alpha=0,
+        reg_lambda=0,
+        verbose=-1,
+    )
+    return model.fit(x_train, y_train)
+
+
+def stacking(x_train, y_train):
+    clf1 = LGBMClassifier(
+        objective="multiclass",
+        num_class=len(set(y_train)),
+        random_state=42,
+        n_estimators=500,
+        max_depth=9,
+        learning_rate=0.2,
+        subsample=0.9,
+        colsample_bytree=1.0,
+        reg_alpha=0,
+        reg_lambda=0,
+        verbose=-1,
+    )
+    clf2 = XGBClassifier(
+        objective="multi:softmax",
+        eval_metric="mlogloss",
+        num_class=len(set(y_train)),
+        use_label_encoder=False,
+        random_state=42,
+        colsample_bytree=1.0,
+        gamma=0,
+        learning_rate=0.2,
+        max_depth=9,
+        n_estimators=500,
+        reg_alpha=0,
+        reg_lambda=0,
+        subsample=0.9,
+    )
+    clf3 = LogisticRegression(
+        multi_class="multinomial",
+        solver="lbfgs",
+        max_iter=1000,
+    )
+
+    base_classifiers = [("XGBOOST", clf1), ("LGBM", clf2), ("LOGISTIC", clf3)]
+
+    stacking_clf = StackingClassifier(
+        estimators=base_classifiers,
+        final_estimator=XGBClassifier(
+            objective="multi:softmax",
+            eval_metric="mlogloss",
+            num_class=len(set(y_train)),
+            use_label_encoder=False,
+            random_state=42,
+            colsample_bytree=1.0,
+            gamma=0,
+            learning_rate=0.2,
+            max_depth=9,
+            n_estimators=500,
+            reg_alpha=0,
+            reg_lambda=0,
+            subsample=0.9,
+        ),
+        stack_method="predict",
+    )
+    return stacking_clf.fit(x_train, y_train)
+
+
 def train(path, gender, age, grid_search, model_type):
     x_train, x_test, x_val, y_train, y_test, y_val = (
         preprocessing.preprocessing_features(path, gender, age, model_type)
     )
 
-    if grid_search and model_type != "xgboost":
+    if grid_search and model_type not in ["xgboost", "lgbm"]:
         raise ValueError(
-            f"Grid search is only implemented for 'xgboost', not {model_type}"
+            f"Grid search is only implemented for 'xgboost' and 'lgbm', not {model_type}"
         )
 
     if model_type == "xgboost":
@@ -156,20 +269,27 @@ def train(path, gender, age, grid_search, model_type):
         best_classifier = svc_classifier(x_train, y_train)
     elif model_type == "gmm":
         best_classifier = gmm_classifier(x_train, y_train)
+    elif model_type == "lgbm":
+        if grid_search:
+            best_classifier = lgbm_classifier_grid_search(x_train, y_train)
+        else:
+            best_classifier = lgbm_classifier(x_train, y_train)
+    elif model_type == "stacking":
+        best_classifier = stacking(x_train, y_train)
     else:
         raise ValueError(
-            "Invalid model_type. Choose 'svc' or 'gmm' or 'xgboost' or logistic."
+            "Invalid model_type. Choose 'svc', 'gmm', 'xgboost', 'lgbm', 'stacking' or 'logistic'."
         )
 
     if gender:
         pickle.dump(
-            best_classifier, open(f"./data/model_{model_type}_gender.pkl", "wb")
+            best_classifier, open(f"./model/model_{model_type}_gender.pkl", "wb")
         )
         print(f"Model saved as model_{model_type}_gender.pkl")
     elif age:
-        pickle.dump(best_classifier, open(f"./data/model_{model_type}_age.pkl", "wb"))
+        pickle.dump(best_classifier, open(f"./model/model_{model_type}_age.pkl", "wb"))
         print(f"Model saved as model_{model_type}_age.pkl")
     else:
-        pickle.dump(best_classifier, open(f"./data/model_{model_type}.pkl", "wb"))
+        pickle.dump(best_classifier, open(f"./model/model_{model_type}.pkl", "wb"))
         print(f"Model saved as model_{model_type}.pkl")
     return x_test, x_val, y_test, y_val

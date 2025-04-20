@@ -1,6 +1,6 @@
-import pipeline
-import multiprocessing
 import argparse
+import multiprocessing
+import pipeline
 
 
 def main(
@@ -60,7 +60,9 @@ if __name__ == "__main__":
         "--gridsearch", action="store_true", help="Enable grid search for training"
     )
     parser.add_argument(
-        "--val", type=bool, default=True, help="Validation flag (default: True)"
+        "--val",
+        action="store_true",
+        help=" Val (default: False), enable it when the file is already normalized",
     )
     parser.add_argument(
         "--save_test",
