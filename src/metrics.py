@@ -31,11 +31,4 @@ def show(model, x_test, y_test, gfas, gender_model, age_model):
 
 
 def get_predictions(model, x_test):
-    times = []
-    predictions = []
-    for test in x_test:
-        start = time.time()
-        pred = model.predict([test])
-        times.append(time.time() - start)
-        predictions.append(pred[0])
-    return predictions, times
+    return model.predict(x_test)

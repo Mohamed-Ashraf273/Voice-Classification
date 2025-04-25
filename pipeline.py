@@ -144,23 +144,10 @@ def final_out(test_file_path, model_selected):
     extract_features(test_file_path, production=True)
     df = pd.read_csv("./features_prod.csv")
     x_test = df["features"].values.tolist()
-    time_for_extract_features = df["time_taken"].values.tolist()
     x_test = [np.asarray(x.split(","), np.float32) for x in x_test]
     with open(f"./model/model_{model_selected}.pkl", "rb") as file:
         loaded_model = pickle.load(file)
     with open(f"./model/scaler_{model_selected}.pkl", "rb") as f:
         scaler = pickle.load(f)
     x_test = scaler.transform(x_test)
-    predictions, time_to_predict = predict_test_data(loaded_model, x_test)
-    total_time = [
-        round(extract + predict, 3)
-        for extract, predict in zip(time_for_extract_features, time_to_predict)
-    ]
-    with open(f"./results.txt", "w") as f:
-        for pred in predictions:
-            f.write(f"{pred}\n")
-    with open(f"./time.txt", "w") as f:
-        for t in total_time:
-            f.write(f"{t}\n")
-    print(f"Predictions saved to results.txt")
-    print(f"Times saved to time.txt")
+    return predict_test_data(loaded_model, x_test)

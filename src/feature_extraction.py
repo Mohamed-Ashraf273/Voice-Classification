@@ -3,7 +3,6 @@ import librosa
 import numpy as np
 import os
 import pandas as pd
-import time
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from src import preprocessing
 
@@ -42,13 +41,11 @@ def process_file_batch(batch, metadata_dict, production):
                     continue
 
             y, sr = librosa.load(file_path, sr=16000)
-            start_time = time.time()
             features = extract_features(y, sr, preprocess=True)
-            total_time_per_audio = time.time() - start_time
             features_str = ",".join(map(str, features))
 
             if production:
-                results.append([features_str, total_time_per_audio, file])
+                results.append([features_str, file])
             else:
                 results.append([features_str, file_info["label"], file])
 
@@ -109,7 +106,7 @@ def get_features(metadata_path, output_path, production, max_workers=12, chunk_s
     with open(output_path, "w", newline="") as csvfile:
         writer = csv.writer(csvfile)
         if production:
-            writer.writerow(["features", "time_taken", "path"])
+            writer.writerow(["features", "path"])
         else:
             writer.writerow(["features", "label", "path"])
         writer.writerows(data_rows)
