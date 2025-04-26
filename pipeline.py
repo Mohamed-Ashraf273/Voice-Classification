@@ -27,7 +27,7 @@ def plot_data_distribution(path):
     metrics.plot_data_distribution(path)
 
 
-def train_classifier(path, gender, age, grid_search, model_type="xgboost"):
+def train_classifier(path, gender, age, grid_search, model_type="stacking"):
     x_test, x_val, y_test, y_val = classifier.train(
         path, gender, age, grid_search, model_type=model_type
     )
@@ -53,7 +53,7 @@ def predict_test_data(model, x_test):
 
 
 def dev(
-    model="xgboost",
+    model="stacking",
     grid_search=False,
     datapath=None,
     features_file_path=None,
@@ -105,7 +105,7 @@ def dev(
         )
 
 
-def predict_all(test_file_path, val=False, model_selected="xgboost", gfas=False):
+def predict_all(test_file_path, val=False, model_selected="stacking", gfas=False):
     print(
         "This function will predict on our model, but if you trained a model it will override ours."
     )
@@ -138,7 +138,7 @@ def predict_all(test_file_path, val=False, model_selected="xgboost", gfas=False)
 
 def final_out(test_file_path, model_selected):
     print(
-        "This function will predict on our models (xgboost, svm, gmm and logistic), "
+        "This function will predict on our models 'svc', 'gmm', 'xgboost', 'lgbm', 'stacking' or 'logistic', "
         "but if you trained a model it will override ours."
     )
     extract_features(test_file_path, production=True)

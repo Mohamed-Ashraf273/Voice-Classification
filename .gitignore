@@ -3,4 +3,5 @@ test/
 model/scaler_lgbm.pkl
 model/model_xgboost.pkl
 model/scaler_xgboost.pkl
+catboost_info
 __pycache__

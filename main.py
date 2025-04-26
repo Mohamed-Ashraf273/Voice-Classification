@@ -54,7 +54,7 @@ if __name__ == "__main__":
         "--testfile", default=None, help="Path to test file for validation"
     )
     parser.add_argument(
-        "--model", default="xgboost", help="Model to use (default: xgboost)"
+        "--model", default="stacking", help="Model to use (default: stacking)"
     )
     parser.add_argument(
         "--gridsearch", action="store_true", help="Enable grid search for training"

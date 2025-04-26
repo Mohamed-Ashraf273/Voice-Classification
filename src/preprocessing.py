@@ -103,7 +103,7 @@ def preprocessing_features(path, gender, age, model_type):
     x = x.tolist()
     x = [np.asarray(s.split(","), np.float32) for s in x]
     x_train, x_test, y_train, y_test = train_test_split(
-        x, y, test_size=0.2, random_state=42
+        x, y, test_size=0.1, random_state=42
     )
     x_test, x_val, y_test, y_val = train_test_split(
         x_test, y_test, test_size=0.5, random_state=42

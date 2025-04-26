@@ -1,5 +1,6 @@
 import numpy as np
 import pickle
+from catboost import CatBoostClassifier
 from lightgbm import LGBMClassifier
 from sklearn.ensemble import StackingClassifier
 from sklearn.linear_model import LogisticRegression
@@ -203,7 +204,20 @@ def stacking(x_train, y_train):
         reg_lambda=0,
         verbose=-1,
     )
-    clf2 = XGBClassifier(
+    clf2 = LGBMClassifier(
+        objective="multiclass",
+        num_class=len(set(y_train)),
+        random_state=42,
+        n_estimators=600,
+        max_depth=9,
+        learning_rate=0.3,
+        subsample=0.9,
+        colsample_bytree=1.0,
+        reg_alpha=0.1,
+        reg_lambda=0,
+        verbose=-1,
+    )
+    clf3 = XGBClassifier(
         objective="multi:softmax",
         eval_metric="mlogloss",
         num_class=len(set(y_train)),
@@ -218,13 +232,60 @@ def stacking(x_train, y_train):
         reg_lambda=0,
         subsample=0.9,
     )
-    clf3 = LogisticRegression(
+    clf4 = XGBClassifier(
+        objective="multi:softmax",
+        eval_metric="mlogloss",
+        num_class=len(set(y_train)),
+        use_label_encoder=False,
+        random_state=42,
+        colsample_bytree=1.0,
+        gamma=0,
+        learning_rate=0.3,
+        max_depth=9,
+        n_estimators=600,
+        reg_alpha=0.1,
+        reg_lambda=0,
+        subsample=0.9,
+    )
+    # clf5 = CatBoostClassifier(
+    #     loss_function="MultiClass",
+    #     eval_metric="MultiClass",
+    #     random_seed=42,
+    #     learning_rate=0.2,
+    #     depth=9,
+    #     iterations=500,
+    #     l2_leaf_reg=0,
+    #     rsm=1.0,
+    #     subsample=0.9,
+    #     verbose=0,
+    # )
+    clf5 = CatBoostClassifier(
+        loss_function="MultiClass",
+        eval_metric="MultiClass",
+        random_seed=42,
+        learning_rate=0.2,
+        depth=9,
+        iterations=500,
+        l2_leaf_reg=0,
+        rsm=1.0,
+        subsample=0.9,
+        bootstrap_type="Bernoulli",
+        verbose=0,
+    )
+    clf6 = LogisticRegression(
         multi_class="multinomial",
         solver="lbfgs",
         max_iter=1000,
     )
 
-    base_classifiers = [("XGBOOST", clf1), ("LGBM", clf2), ("LOGISTIC", clf3)]
+    base_classifiers = [
+        ("LGBM1", clf1),
+        ("LGBM2", clf2),
+        ("XGBOOST1", clf3),
+        ("XGBOOST2", clf4),
+        ("CATBOOST", clf5),
+        ("LOGISTIC", clf6),
+    ]
 
     stacking_clf = StackingClassifier(
         estimators=base_classifiers,
