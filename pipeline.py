@@ -2,7 +2,6 @@ import json
 import numpy as np
 import pandas as pd
 import pickle
-import time
 from src import feature_extraction, classifier, metrics
 
 
@@ -109,7 +108,6 @@ def predict_all(test_file_path, val=False, model_selected="stacking", gfas=False
     print(
         "This function will predict on our model, but if you trained a model it will override ours."
     )
-    start_time = time.time()
     with open(test_file_path, "r") as file:
         data = json.load(file)
     x_test = np.array(data["x_test"])
@@ -133,7 +131,6 @@ def predict_all(test_file_path, val=False, model_selected="stacking", gfas=False
     if not val:
         x_test = scaler.transform(x_test)
     get_metrics(loaded_model, x_test, y_test, gfas, gender_model, age_model)
-    print(f"Time taken to predict all: {time.time() - start_time:.2f} seconds")
 
 
 def final_out(test_file_path, model_selected):

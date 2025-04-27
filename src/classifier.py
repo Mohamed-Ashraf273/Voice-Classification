@@ -253,18 +253,6 @@ def stacking(x_train, y_train):
         reg_lambda=0,
         subsample=0.9,
     )
-    # clf5 = CatBoostClassifier(
-    #     loss_function="MultiClass",
-    #     eval_metric="MultiClass",
-    #     random_seed=42,
-    #     learning_rate=0.2,
-    #     depth=9,
-    #     iterations=500,
-    #     l2_leaf_reg=0,
-    #     rsm=1.0,
-    #     subsample=0.9,
-    #     verbose=0,
-    # )
     clf5 = CatBoostClassifier(
         loss_function="MultiClass",
         eval_metric="MultiClass",
@@ -285,7 +273,6 @@ def stacking(x_train, y_train):
         max_iter=1000,
         class_weight=class_weights,
     )
-
     clf7 = RandomForestClassifier(
         n_estimators=100,
         max_depth=10,

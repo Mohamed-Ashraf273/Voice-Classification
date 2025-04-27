@@ -1,6 +1,7 @@
 import argparse
 import multiprocessing
 import pipeline
+import time
 
 
 def main(
@@ -29,7 +30,15 @@ def main(
     elif mode == "validate":
         pipeline.predict_all(test_file_path, val=val, model_selected=model_selected)
     elif mode == "predict":
-        pipeline.final_out(audio_test_path, model_selected=model_selected)
+        start = time.time()
+        predictions = pipeline.final_out(audio_test_path, model_selected=model_selected)
+        end = time.time()
+        with open(f"./results.txt", "w") as f:
+            for pred in predictions:
+                f.write(f"{pred}\n")
+        with open("./time.txt", "w") as f:
+            f.write(str(round(end - start, 3)))
+
     else:
         raise ValueError(
             "Invalid mode. Choose from 'train', 'features', 'validate' or 'predict'."
