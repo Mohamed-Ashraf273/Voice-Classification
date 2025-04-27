@@ -2,10 +2,11 @@ import numpy as np
 import pickle
 from catboost import CatBoostClassifier
 from lightgbm import LGBMClassifier
-from sklearn.ensemble import StackingClassifier
+from sklearn.ensemble import StackingClassifier, RandomForestClassifier
 from sklearn.linear_model import LogisticRegression
 from sklearn.mixture import GaussianMixture
 from sklearn.model_selection import GridSearchCV
+from sklearn.neighbors import KNeighborsClassifier
 from sklearn.svm import SVC
 from sklearn.utils.class_weight import compute_class_weight
 from src import preprocessing
@@ -191,6 +192,9 @@ def lgbm_classifier(x_train, y_train):
 
 
 def stacking(x_train, y_train):
+    classes = np.unique(y_train)
+    weights = compute_class_weight("balanced", classes=classes, y=y_train)
+    class_weights = dict(zip(classes, weights))
     clf1 = LGBMClassifier(
         objective="multiclass",
         num_class=len(set(y_train)),
@@ -203,6 +207,7 @@ def stacking(x_train, y_train):
         reg_alpha=0,
         reg_lambda=0,
         verbose=-1,
+        class_weight=class_weights,
     )
     clf2 = LGBMClassifier(
         objective="multiclass",
@@ -216,6 +221,7 @@ def stacking(x_train, y_train):
         reg_alpha=0.1,
         reg_lambda=0,
         verbose=-1,
+        class_weight=class_weights,
     )
     clf3 = XGBClassifier(
         objective="multi:softmax",
@@ -271,12 +277,22 @@ def stacking(x_train, y_train):
         subsample=0.9,
         bootstrap_type="Bernoulli",
         verbose=0,
+        class_weights=list(weights),
     )
     clf6 = LogisticRegression(
         multi_class="multinomial",
         solver="lbfgs",
         max_iter=1000,
+        class_weight=class_weights,
     )
+
+    clf7 = RandomForestClassifier(
+        n_estimators=100,
+        max_depth=10,
+        random_state=42,
+        class_weight=class_weights,
+    )
+    clf8 = KNeighborsClassifier(n_neighbors=5, weights="distance", n_jobs=-1)
 
     base_classifiers = [
         ("LGBM1", clf1),
@@ -285,6 +301,8 @@ def stacking(x_train, y_train):
         ("XGBOOST2", clf4),
         ("CATBOOST", clf5),
         ("LOGISTIC", clf6),
+        ("RANDOMFOREST", clf7),
+        ("KNN", clf8),
     ]
 
     stacking_clf = StackingClassifier(
@@ -305,6 +323,7 @@ def stacking(x_train, y_train):
             subsample=0.9,
         ),
         stack_method="predict",
+        passthrough=True,
     )
     return stacking_clf.fit(x_train, y_train)
 
