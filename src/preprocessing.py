@@ -7,6 +7,7 @@ import pandas as pd
 import pickle
 from imblearn.pipeline import make_pipeline
 from imblearn.under_sampling import RandomUnderSampler, TomekLinks
+from imblearn.over_sampling import RandomOverSampler
 from scipy.signal import butter, lfilter
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
@@ -55,8 +56,8 @@ def preprocess_audio(y, sr):
     return y_filtered
 
 
-def balanced_undersampling_pipeline(
-    X, y, min_samples=10, majority_ratio=3, random_state=42
+def balancing__pipeline(
+    X, y, train=True, min_samples=10, majority_ratio=3, random_state=42
 ):
     """
     More conservative undersampling that:
@@ -81,13 +82,25 @@ def balanced_undersampling_pipeline(
     if not sampling_strategy:
         return X, y
 
-    undersampler = RandomUnderSampler(
-        sampling_strategy=sampling_strategy, random_state=random_state
+    steps = []
+
+    steps.append(
+        RandomUnderSampler(
+            sampling_strategy=sampling_strategy, random_state=random_state
+        )
     )
 
-    tomek = TomekLinks(sampling_strategy="majority")
+    steps.append(TomekLinks(sampling_strategy="majority"))
 
-    pipeline = make_pipeline(undersampler, tomek)
+    # if train:
+    #     steps.append(
+    #         RandomOverSampler(
+    #             sampling_strategy="not majority",
+    #             random_state=random_state,
+    #         )
+    #     ) # still under test
+
+    pipeline = make_pipeline(*steps)
     return pipeline.fit_resample(X, y)
 
 
@@ -122,13 +135,13 @@ def preprocessing_features(path, gender, age, model_type):
 
     # X_resampled, y_resampled = x_train[:80000], y_train[:80000]
     print("Train data before balancing: ", np.unique(y_train, return_counts=True))
-    x_resampled, y_resampled = balanced_undersampling_pipeline(
+    x_resampled, y_resampled = balancing__pipeline(
         x_train, y_train, min_samples=13000, majority_ratio=2, random_state=42
     )
     print("Train data after balancing: ", np.unique(y_resampled, return_counts=True))
     print("Validation data before balancing: ", np.unique(y_val, return_counts=True))
-    x_val, y_val = balanced_undersampling_pipeline(
-        x_val, y_val, min_samples=500, majority_ratio=1, random_state=42
+    x_val, y_val = balancing__pipeline(
+        x_val, y_val, train=False, min_samples=500, majority_ratio=1, random_state=42
     )
     print("Validation data after balancing: ", np.unique(y_val, return_counts=True))
 

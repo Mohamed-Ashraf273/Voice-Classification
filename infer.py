@@ -1,21 +1,15 @@
-import multiprocessing
-import pipeline
+import subprocess
 import time
 
 
-def infer(test_dir, model="stacking"):
+def infer(run_inference_script, test_dir, model="stacking"):
+    command = ["python", run_inference_script, test_dir, model]
     start = time.time()
-    predictions = pipeline.final_out(test_file_path=test_dir, model_selected=model)
+    subprocess.run(command, check=True)
     end = time.time()
-    with open(f"./results.txt", "w") as f:
-        for pred in predictions:
-            f.write(f"{pred}\n")
     with open("./time.txt", "w") as f:
         f.write(str(round(end - start, 3)))
 
 
 if __name__ == "__main__":
-    multiprocessing.freeze_support()
-    infer(
-        "./data"
-    )  # this path could be changed, it has a default value "data" because the TA wanted that, recommend to change it to something else.
+    infer("run_inference.py", "./data")
