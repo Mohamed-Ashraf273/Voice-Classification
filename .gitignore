@@ -1,5 +1,8 @@
+data_local/
 data/
 test/
 model/
+build/
+infer.spec
 catboost_info
 __pycache__

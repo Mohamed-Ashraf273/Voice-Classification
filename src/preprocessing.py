@@ -92,14 +92,6 @@ def balancing__pipeline(
 
     steps.append(TomekLinks(sampling_strategy="majority"))
 
-    # if train:
-    #     steps.append(
-    #         RandomOverSampler(
-    #             sampling_strategy="not majority",
-    #             random_state=random_state,
-    #         )
-    #     ) # still under test
-
     pipeline = make_pipeline(*steps)
     return pipeline.fit_resample(X, y)
 
