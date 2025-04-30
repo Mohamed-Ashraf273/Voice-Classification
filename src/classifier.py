@@ -359,4 +359,4 @@ def train(path, gender, age, grid_search, model_type):
     else:
         pickle.dump(best_classifier, open(f"./model/model_{model_type}.pkl", "wb"))
         print(f"Model saved as model_{model_type}.pkl")
-    return x_test, x_val, y_test, y_val
+    return x_train, x_test, x_val, y_train, y_test, y_val

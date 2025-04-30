@@ -27,10 +27,10 @@ def plot_data_distribution(path):
 
 
 def train_classifier(path, gender, age, grid_search, model_type="stacking"):
-    x_test, x_val, y_test, y_val = classifier.train(
+    x_train, x_test, x_val, y_train, y_test, y_val = classifier.train(
         path, gender, age, grid_search, model_type=model_type
     )
-    return x_test, x_val, y_test, y_val
+    return x_train, x_test, x_val, y_train, y_test, y_val
 
 
 def save_test_data(x_test, y_test, filename="./test_data.json"):
@@ -73,7 +73,7 @@ def dev(
         else:
             print("Normal training")
         model_selected = model
-        x_test, x_val, y_test, y_val = train_classifier(
+        x_train, x_test, x_val, y_train, y_test, y_val = train_classifier(
             features_file_path,
             gender,
             age,
@@ -93,7 +93,7 @@ def dev(
         else:
             with open(f"./model/model_{model_selected}.pkl", "rb") as file:
                 loaded_model = pickle.load(file)
-        get_metrics(loaded_model, x_val, y_val, gfas=False)
+        get_metrics(loaded_model, x_train, y_train, gfas=False)
     else:
         print("Feature extracting mode")
         if datapath is None:
