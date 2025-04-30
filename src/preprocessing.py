@@ -7,7 +7,6 @@ import pandas as pd
 import pickle
 from imblearn.pipeline import make_pipeline
 from imblearn.under_sampling import RandomUnderSampler, TomekLinks
-from imblearn.over_sampling import RandomOverSampler
 from scipy.signal import butter, lfilter
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
