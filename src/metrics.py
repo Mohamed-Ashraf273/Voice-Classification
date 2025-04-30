@@ -1,7 +1,6 @@
 import matplotlib.pyplot as plt
 import pandas as pd
 import seaborn as sns
-import time
 from sklearn.metrics import classification_report, accuracy_score, confusion_matrix
 
 

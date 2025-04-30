@@ -3,6 +3,7 @@ data/
 test/
 model/
 build/
+prepare_test.ipynb
 infer.spec
 catboost_info
 __pycache__
