@@ -55,8 +55,8 @@ def preprocess_audio(y, sr):
     return y_filtered
 
 
-def balancing__pipeline(
-    X, y, train=True, min_samples=10, majority_ratio=3, random_state=42
+def balancing_pipeline(
+    X, y, min_samples=10, majority_ratio=3, random_state=42
 ):
     """
     More conservative undersampling that:
@@ -126,13 +126,13 @@ def preprocessing_features(path, gender, age, model_type):
 
     # X_resampled, y_resampled = x_train[:80000], y_train[:80000]
     print("Train data before balancing: ", np.unique(y_train, return_counts=True))
-    x_resampled, y_resampled = balancing__pipeline(
+    x_resampled, y_resampled = balancing_pipeline(
         x_train, y_train, min_samples=13000, majority_ratio=2, random_state=42
     )
     print("Train data after balancing: ", np.unique(y_resampled, return_counts=True))
     print("Validation data before balancing: ", np.unique(y_val, return_counts=True))
-    x_val, y_val = balancing__pipeline(
-        x_val, y_val, train=False, min_samples=500, majority_ratio=1, random_state=42
+    x_val, y_val = balancing_pipeline(
+        x_val, y_val, min_samples=500, majority_ratio=1, random_state=42
     )
     print("Validation data after balancing: ", np.unique(y_val, return_counts=True))
 
