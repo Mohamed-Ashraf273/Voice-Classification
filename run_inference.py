@@ -4,7 +4,7 @@ import sys
 
 
 def infer(test_dir, model="stacking"):
-    predictions = pipeline.final_out(test_file_path=test_dir, model_selected=model)
+    predictions = pipeline.inference(test_file_path=test_dir, model_selected=model)
     with open(f"./results.txt", "w") as f:
         for pred in predictions:
             f.write(f"{pred}\n")

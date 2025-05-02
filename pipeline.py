@@ -133,9 +133,9 @@ def predict_all(test_file_path, val=False, model_selected="stacking", gfas=False
     get_metrics(loaded_model, x_test, y_test, gfas, gender_model, age_model)
 
 
-def final_out(test_file_path, model_selected):
+def inference(test_file_path, model_selected):
     print(
-        "This function will predict on our models 'svc', 'gmm', 'xgboost', 'lgbm', 'stacking' or 'logistic', "
+        "This function will predict on our models 'svc', 'gmm', 'xgboost', 'lgbm', 'stacking', 'mlp' or 'logistic', "
         "but if you trained a model it will override ours."
     )
     extract_features(test_file_path, production=True)

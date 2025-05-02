@@ -7,6 +7,7 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.mixture import GaussianMixture
 from sklearn.model_selection import GridSearchCV
 from sklearn.neighbors import KNeighborsClassifier
+from sklearn.neural_network import MLPClassifier
 from sklearn.svm import SVC
 from sklearn.utils.class_weight import compute_class_weight
 from src import preprocessing
@@ -46,7 +47,6 @@ def svc_classifier(x_train, y_train):
     classes = np.unique(y_train)
     weights = compute_class_weight("balanced", classes=classes, y=y_train)
     class_weights = dict(zip(classes, weights))
-    # class_weights[2] *= 2
     model = SVC(
         probability=True,
         class_weight=class_weights,
@@ -55,24 +55,14 @@ def svc_classifier(x_train, y_train):
         gamma="scale",
         degree=6,
         random_state=42,
-    )  # best: probability=True, C=10, kernel="poly", gamma="scale", degree=6, random_state=42
-    # param_grid = {
-    #     "C": [0.1, 1],
-    #     "kernel": ["linear", "rbf"],
-    # }
-
-    # grid_search = GridSearchCV(model, param_grid, cv=5, n_jobs=-1, verbose=10,return_train_score=True)
-    # grid_search.fit(x_train, y_train)
-    # best_model = grid_search.best_estimator_
-    # print("Best parameters found: ", grid_search.best_params_)
-    # print("Best cross-validation score: ", grid_search.best_score_)
+    )
     return model.fit(x_train, y_train)
 
 
 def logistic_classifier(x_train, y_train):
     model = LogisticRegression(
-        multi_class="multinomial",  # or 'ovr'
-        solver="lbfgs",  # recommended for multinomial
+        multi_class="multinomial",
+        solver="lbfgs",
         max_iter=1000,
     )
     return model.fit(x_train, y_train)
@@ -227,7 +217,6 @@ def stacking(x_train, y_train):
         objective="multi:softmax",
         eval_metric="mlogloss",
         num_class=len(set(y_train)),
-        use_label_encoder=False,
         random_state=42,
         colsample_bytree=1.0,
         gamma=0,
@@ -242,7 +231,6 @@ def stacking(x_train, y_train):
         objective="multi:softmax",
         eval_metric="mlogloss",
         num_class=len(set(y_train)),
-        use_label_encoder=False,
         random_state=42,
         colsample_bytree=1.0,
         gamma=0,
@@ -253,7 +241,18 @@ def stacking(x_train, y_train):
         reg_lambda=0,
         subsample=0.9,
     )
-    clf5 = CatBoostClassifier(
+    clf5 = MLPClassifier(
+        hidden_layer_sizes=(256, 256),
+        activation="relu",
+        solver="adam",
+        alpha=0.01,
+        batch_size=128,
+        learning_rate="adaptive",
+        random_state=42,
+        max_iter=400,
+        early_stopping=True,
+    )
+    clf6 = CatBoostClassifier(
         loss_function="MultiClass",
         eval_metric="MultiClass",
         random_seed=42,
@@ -267,12 +266,6 @@ def stacking(x_train, y_train):
         verbose=0,
         class_weights=list(weights),
     )
-    clf6 = LogisticRegression(
-        multi_class="multinomial",
-        solver="lbfgs",
-        max_iter=1000,
-        class_weight=class_weights,
-    )
     clf7 = RandomForestClassifier(
         n_estimators=100,
         max_depth=10,
@@ -283,36 +276,88 @@ def stacking(x_train, y_train):
 
     base_classifiers = [
         ("LGBM1", clf1),
-        ("LGBM2", clf2),
+        # ("LGBM2", clf2),
         ("XGBOOST1", clf3),
-        ("XGBOOST2", clf4),
-        ("CATBOOST", clf5),
-        ("LOGISTIC", clf6),
+        # ("XGBOOST2", clf4),
+        ("MLP", clf5),
+        ("CATBOOST", clf6),
         ("RANDOMFOREST", clf7),
         ("KNN", clf8),
     ]
 
+    final_est = XGBClassifier(
+        objective="multi:softmax",
+        eval_metric="mlogloss",
+        num_class=len(set(y_train)),
+        random_state=42,
+        colsample_bytree=1.0,
+        gamma=0,
+        learning_rate=0.2,
+        max_depth=9,
+        n_estimators=500,
+        reg_alpha=0,
+        reg_lambda=0,
+        subsample=0.9,
+    )
+
     stacking_clf = StackingClassifier(
         estimators=base_classifiers,
-        final_estimator=XGBClassifier(
-            objective="multi:softmax",
-            eval_metric="mlogloss",
-            num_class=len(set(y_train)),
-            use_label_encoder=False,
-            random_state=42,
-            colsample_bytree=1.0,
-            gamma=0,
-            learning_rate=0.2,
-            max_depth=9,
-            n_estimators=500,
-            reg_alpha=0,
-            reg_lambda=0,
-            subsample=0.9,
-        ),
+        final_estimator=final_est,
         stack_method="predict",
         passthrough=True,
+        n_jobs=-1,
+        verbose=10,
     )
     return stacking_clf.fit(x_train, y_train)
+
+
+def mlp_classifier(x_train, y_train):
+    model = MLPClassifier(
+        hidden_layer_sizes=(256, 256),
+        activation="relu",
+        solver="adam",
+        alpha=0.01,
+        batch_size=256,
+        learning_rate="adaptive",
+        random_state=42,
+        max_iter=400,
+        early_stopping=True,
+    )
+    return model.fit(x_train, y_train)
+
+
+def mlp_classifier_grid_search(x_train, y_train):
+    print("Grid search on mlp started: ")
+    model = MLPClassifier(
+        solver="adam",
+        random_state=42,
+        early_stopping=True,
+    )
+    param_grid = {
+        "hidden_layer_sizes": [(128, 128), (256, 256), (512, 512)],
+        "activation": ["relu", "tanh"],
+        "alpha": [0.001, 0.01, 0.1],
+        "learning_rate": ["constant", "adaptive"],
+        "batch_size": [128, 256, 512],
+        "max_iter": [200, 400, 500],
+    }
+
+    grid_search = GridSearchCV(
+        estimator=model,
+        param_grid=param_grid,
+        cv=5,
+        scoring="f1_weighted",
+        n_jobs=-1,
+        verbose=10,
+    )
+
+    grid_search.fit(x_train, y_train)
+    best_model = grid_search.best_estimator_
+
+    print("Best parameters:", grid_search.best_params_)
+    print("Best weighted F1 CV score:", grid_search.best_score_)
+
+    return best_model
 
 
 def train(path, gender, age, grid_search, model_type):
@@ -320,9 +365,9 @@ def train(path, gender, age, grid_search, model_type):
         preprocessing.preprocessing_features(path, gender, age, model_type)
     )
 
-    if grid_search and model_type not in ["xgboost", "lgbm"]:
+    if grid_search and model_type not in ["xgboost", "lgbm", "mlp"]:
         raise ValueError(
-            f"Grid search is only implemented for 'xgboost' and 'lgbm', not {model_type}"
+            f"Grid search is only implemented for 'xgboost', 'lgbm' and 'mlp, not {model_type}"
         )
 
     if model_type == "xgboost":
@@ -343,9 +388,14 @@ def train(path, gender, age, grid_search, model_type):
             best_classifier = lgbm_classifier(x_train, y_train)
     elif model_type == "stacking":
         best_classifier = stacking(x_train, y_train)
+    elif model_type == "mlp":
+        if grid_search:
+            best_classifier = mlp_classifier_grid_search(x_train, y_train)
+        else:
+            best_classifier = mlp_classifier(x_train, y_train)
     else:
         raise ValueError(
-            "Invalid model_type. Choose 'svc', 'gmm', 'xgboost', 'lgbm', 'stacking' or 'logistic'."
+            "Invalid model_type. Choose 'svc', 'gmm', 'xgboost', 'lgbm', 'stacking', 'mlp' or 'logistic'."
         )
 
     if gender:

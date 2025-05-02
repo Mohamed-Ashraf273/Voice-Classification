@@ -55,9 +55,7 @@ def preprocess_audio(y, sr):
     return y_filtered
 
 
-def balancing_pipeline(
-    X, y, min_samples=10, majority_ratio=3, random_state=42
-):
+def balancing_pipeline(X, y, min_samples=10, majority_ratio=3, random_state=42):
     """
     More conservative undersampling that:
     1. Protects tiny classes (< min_samples)
