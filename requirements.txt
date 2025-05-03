@@ -2,6 +2,7 @@ catboost
 imblearn
 ipython
 librosa
+lightgbm
 matplotlib
 numpy
 pandas

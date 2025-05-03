@@ -276,9 +276,9 @@ def stacking(x_train, y_train):
 
     base_classifiers = [
         ("LGBM1", clf1),
-        # ("LGBM2", clf2),
+        ("LGBM2", clf2),
         ("XGBOOST1", clf3),
-        # ("XGBOOST2", clf4),
+        ("XGBOOST2", clf4),
         ("MLP", clf5),
         ("CATBOOST", clf6),
         ("RANDOMFOREST", clf7),

@@ -3,7 +3,8 @@ data/
 test/
 model/
 build/
-prepare_test.ipynb
+prepare_train_test_val.ipynb
+upload_model_HF.py
 infer.spec
 catboost_info
 __pycache__

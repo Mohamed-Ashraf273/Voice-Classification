@@ -40,7 +40,7 @@ def process_file_batch(batch, metadata_dict, production):
                     results.append(None)
                     continue
 
-            y, sr = librosa.load(file_path, sr=16000)
+            y, sr = librosa.load(file_path, sr=48000)
             features = extract_features(y, sr, preprocess=True)
             features_str = ",".join(map(str, features))
 
