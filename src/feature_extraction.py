@@ -3,6 +3,7 @@ import librosa
 import numpy as np
 import os
 import pandas as pd
+import re
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from src import preprocessing
 
@@ -58,7 +59,16 @@ def process_file_batch(batch, metadata_dict, production):
 
 def get_features(metadata_path, output_path, production, max_workers=12, chunk_size=50):
     if production:
-        files = sorted(os.listdir(metadata_path))
+
+        _splitter = re.compile(r"(\d+)")
+
+        def natural_key(s):
+            return [
+                int(text) if text.isdigit() else text.lower()
+                for text in _splitter.split(s)
+            ]
+
+        files = sorted(os.listdir(metadata_path), key=natural_key)
         all_files = [(os.path.join(metadata_path, file), file) for file in files]
         metadata_dict = None
     else:
