@@ -77,11 +77,6 @@ def xgboost_classifier_grid_search(x_train, y_train):
         use_label_encoder=False,
         random_state=42,
     )
-    # Best parameters: {'colsample_bytree': 0.8, 'gamma': 0, 'learning_rate': 0.2, 'max_depth': 6, 'n_estimators': 200, 'reg_alpha': 0.1, 'reg_lambda': 0, 'subsample': 0.8}
-    # Best parameters: {'colsample_bytree': 1.0, 'gamma': 0, 'learning_rate': 0.2, 'max_depth': 9, 'n_estimators': 300, 'reg_alpha': 0.1, 'reg_lambda': 0.1, 'subsample': 0.9}
-    # {'colsample_bytree': 1.0, 'gamma': 0, 'learning_rate': 0.2, 'max_depth': 9, 'n_estimators': 400, 'reg_alpha': 0.1, 'reg_lambda': 0, 'subsample': 0.8}
-    # {'colsample_bytree': 1.0, 'gamma': 0, 'learning_rate': 0.2, 'max_depth': 9, 'n_estimators': 500, 'reg_alpha': 0.1, 'reg_lambda': 0.1, 'subsample': 0.9}
-    # Best parameters: {'colsample_bytree': 1.0, 'gamma': 0, 'learning_rate': 0.2, 'max_depth': 9, 'n_estimators': 500, 'reg_alpha': 0, 'reg_lambda': 0, 'subsample': 0.9}
     param_grid = {
         "n_estimators": [400, 500],
         "max_depth": [9],
@@ -316,11 +311,10 @@ def mlp_classifier(x_train, y_train):
         hidden_layer_sizes=(256, 256),
         activation="relu",
         solver="adam",
-        alpha=0.01,
-        batch_size=256,
+        batch_size=50,
         learning_rate="adaptive",
         random_state=42,
-        max_iter=400,
+        max_iter=350,
         early_stopping=True,
     )
     return model.fit(x_train, y_train)

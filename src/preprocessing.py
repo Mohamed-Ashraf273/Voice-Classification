@@ -111,18 +111,12 @@ def preprocessing_features(path, gender, age, model_type):
         x_test, y_test, test_size=0.5, random_state=42
     )
 
-    # second plan
-    # sampling_strategy = {0: 31779}
-    # undersampler = RandomUnderSampler(sampling_strategy=sampling_strategy)
-    # X_resampled, y_resampled = undersampler.fit_resample(x_train, y_train)
-
     scaler = StandardScaler()
     x_train = pd.DataFrame(x_train)
     y_train = pd.DataFrame(y_train.tolist())
     x_val = pd.DataFrame(x_val)
     y_val = pd.DataFrame(y_val.tolist())
 
-    # X_resampled, y_resampled = x_train[:80000], y_train[:80000]
     print("Train data before balancing: ", np.unique(y_train, return_counts=True))
     x_resampled, y_resampled = balancing_pipeline(
         x_train, y_train, min_samples=13000, majority_ratio=2, random_state=42

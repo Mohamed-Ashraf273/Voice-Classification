@@ -3,6 +3,8 @@ data/
 test/
 model/
 build/
+.idea
+.venv
 prepare_train_test_val.ipynb
 upload_model_HF.py
 infer.spec
